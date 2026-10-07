@@ -1,0 +1,914 @@
+--- miui/tfa98xx.c
++++ linux612/mocha_miui_tfa98xx.c
+@@ -85,15 +85,16 @@
+ 	struct workqueue_struct *workqueue;
+ 	struct delayed_work monitor_work;
+ 	struct delayed_work download_work;
+-	struct snd_soc_codec *codec;
++	struct snd_soc_component *codec;
+ 	unsigned int pilot_tone;
+ 	unsigned int reg_addr;
+ 	unsigned int fmt;
+ 	bool dsp_crash;
+ 	bool recalib;
+-};
+-
+-static int tfa98xx_bulk_read(struct snd_soc_codec *codec,
++	u16 cache[0x90];
++};
++
++static int tfa98xx_bulk_read(struct snd_soc_component *codec,
+ 			     unsigned int reg_,
+ 			     void *data, size_t len)
+ {
+@@ -112,19 +113,19 @@
+ 	msgs[1].buf   = data;
+ 
+ 	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
+-	if (ret > 0)
+-		ret = 0;
+-
+-	return ret;
+-}
+-
+-static int tfa98xx_bulk_write(struct snd_soc_codec *codec,
++	return ret == 2 ? 0 : ret < 0 ? ret : -EREMOTEIO;
++}
++
++static int tfa98xx_bulk_write(struct snd_soc_component *codec,
+ 			      unsigned int reg,
+ 			      const void *data, size_t len)
+ {
+ 	struct i2c_client *client = to_i2c_client(codec->dev);
+ 	struct i2c_msg msg;
+-	u8 buf[len + 1];
++	u8 *buf;
++	if (len > U16_MAX - 1) return -E2BIG;
++	buf = kmalloc(len + 1, GFP_KERNEL);
++	if (!buf) return -ENOMEM;
+ 	int ret;
+ 
+ 	buf[0] = reg;
+@@ -136,24 +137,20 @@
+ 	msg.buf   = buf;
+ 
+ 	ret = i2c_transfer(client->adapter, &msg, 1);
+-	if (ret > 0)
+-		ret = 0;
+-
+-	return ret;
+-}
+-
+-static unsigned int tfa98xx_read(struct snd_soc_codec *codec, unsigned int reg)
++	kfree(buf);
++	return ret == 1 ? 0 : ret < 0 ? ret : -EREMOTEIO;
++}
++
++static const u16 tfa98xx_reg[0x90];
++static int tfa98xx_volatile_register(struct snd_soc_component *, unsigned int);
++static unsigned int tfa98xx_read(struct snd_soc_component *codec, unsigned int reg)
+ {
+ 	unsigned int val;
+ 	u8 buf[3];
+ 	int ret;
+ 
+-	if (reg >= codec->driver->reg_cache_size ||
+-	    snd_soc_codec_volatile_register(codec, reg) ||
+-	    codec->cache_bypass) {
+-		if (codec->cache_only)
+-			return -EINVAL;
+-
++	if (reg >= ARRAY_SIZE(tfa98xx_reg) ||
++	    tfa98xx_volatile_register(codec, reg)) {
+ 		ret = tfa98xx_bulk_read(codec, reg, buf, reg == TFA98XX_CF_MEM ? 3 : 2);
+ 		if (ret < 0)
+ 			return ret;
+@@ -163,30 +160,20 @@
+ 			return (buf[0] << 8) | buf[1];
+ 	}
+ 
+-	ret = snd_soc_cache_read(codec, reg, &val);
+-	if (ret < 0)
+-		return ret;
++	val = ((struct tfa98xx_priv *)snd_soc_component_get_drvdata(codec))->cache[reg];
+ 	return val;
+ }
+ 
+-static int tfa98xx_write(struct snd_soc_codec *codec, unsigned int reg,
++static int tfa98xx_write(struct snd_soc_component *codec, unsigned int reg,
+ 			 unsigned int value)
+ {
+ 	u8 buf[3];
+ 	size_t sz;
+ 	int ret;
+ 
+-	if (!snd_soc_codec_volatile_register(codec, reg) &&
+-	    reg < codec->driver->reg_cache_size &&
+-	    !codec->cache_bypass) {
+-		ret = snd_soc_cache_write(codec, reg, value);
+-		if (ret < 0)
+-			return ret;
+-	}
+-
+-	if (codec->cache_only) {
+-		codec->cache_sync = 1;
+-		return 0;
++	if (!tfa98xx_volatile_register(codec, reg) &&
++	    reg < ARRAY_SIZE(tfa98xx_reg)) {
++		((struct tfa98xx_priv *)snd_soc_component_get_drvdata(codec))->cache[reg] = value;
+ 	}
+ 
+ 	if (reg == TFA98XX_CF_MEM) {
+@@ -203,22 +190,22 @@
+ 	return tfa98xx_bulk_write(codec, reg, buf, sz);
+ }
+ 
+-static unsigned int tfa98xx_read_dsp(struct snd_soc_codec *codec, unsigned int reg)
++static unsigned int tfa98xx_read_dsp(struct snd_soc_component *codec, unsigned int reg)
+ {
+ 	int ret;
+ 
+-	ret = snd_soc_write(codec, TFA98XX_CF_CONTROLS, (reg >> 15) & 0x0E);
++	ret = snd_soc_component_write(codec, TFA98XX_CF_CONTROLS, (reg >> 15) & 0x0E);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = snd_soc_write(codec, TFA98XX_CF_MAD, reg & 0xFFFF);
++	ret = snd_soc_component_write(codec, TFA98XX_CF_MAD, reg & 0xFFFF);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	return snd_soc_read(codec, TFA98XX_CF_MEM);
+-}
+-
+-static int tfa98xx_reset(struct snd_soc_codec *codec)
++	return snd_soc_component_read(codec, TFA98XX_CF_MEM);
++}
++
++static int tfa98xx_reset(struct snd_soc_component *codec)
+ {
+ 	struct i2c_client *client = to_i2c_client(codec->dev);
+ 	int ret;
+@@ -229,41 +216,46 @@
+ 		return ret;
+ 
+ 	/* apply the current setting after reset */
+-	codec->cache_sync = 1;
+-	ret = snd_soc_cache_sync(codec);
+-	if (ret < 0)
+-		return ret;
++	{
++		struct tfa98xx_priv *priv=snd_soc_component_get_drvdata(codec);
++		unsigned int reg;
++		for(reg=0;reg<ARRAY_SIZE(tfa98xx_reg);reg++) {
++			if(tfa98xx_volatile_register(codec,reg))continue;
++			ret=tfa98xx_write(codec,reg,priv->cache[reg]);
++			if(ret<0)return ret;
++		}
++	}
+ 
+ 	return ret;
+ }
+ 
+-static int tfa98xx_reset_dsp(struct snd_soc_codec *codec)
++static int tfa98xx_reset_dsp(struct snd_soc_component *codec)
+ {
+ 	unsigned int sense4;
+ 	int ret;
+ 
+ 	/* temporarily disable clock gating when dsp reset */
+-	sense4 = snd_soc_read(codec, TFA98XX_CURRENTSENSE4);
+-	ret = snd_soc_write(codec, TFA98XX_CURRENTSENSE4,
++	sense4 = snd_soc_component_read(codec, TFA98XX_CURRENTSENSE4);
++	ret = snd_soc_component_write(codec, TFA98XX_CURRENTSENSE4,
+ 			sense4 | TFA9897_CURRENTSENSE4_2);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = snd_soc_update_bits(codec, TFA98XX_CF_CONTROLS,
++	ret = snd_soc_component_update_bits(codec, TFA98XX_CF_CONTROLS,
+ 			TFA98XX_CF_CONTROLS_RST_MSK, TFA98XX_CF_CONTROLS_RST);
+ 	/* clock gating restore */
+-	snd_soc_write(codec, TFA98XX_CURRENTSENSE4, sense4);
++	snd_soc_component_write(codec, TFA98XX_CURRENTSENSE4, sense4);
+ 
+ 	return ret;
+ }
+ 
+-static int tfa98xx_wait_clock(struct snd_soc_codec *codec)
++static int tfa98xx_wait_clock(struct snd_soc_component *codec)
+ {
+ 	unsigned int status;
+ 	int tries;
+ 
+ 	for (tries = 10; tries > 0; tries--) {
+-		status = snd_soc_read(codec, TFA98XX_STATUSREG);
++		status = snd_soc_component_read(codec, TFA98XX_STATUSREG);
+ 		if ((status & TFA98XX_STATUSREG_UP_MSK) == TFA98XX_STATUSREG_UP)
+ 			break;
+ 		mdelay(1);
+@@ -276,11 +268,11 @@
+ 	return 0;
+ }
+ 
+-static int tfa98xx_power(struct snd_soc_codec *codec, bool on)
++static int tfa98xx_power(struct snd_soc_component *codec, bool on)
+ {
+ 	int ret;
+ 
+-	ret = snd_soc_update_bits_locked(codec, TFA98XX_SYS_CTRL,
++	ret = snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+ 			TFA98XX_SYS_CTRL_PWDN_MSK, on ? 0 : TFA98XX_SYS_CTRL_PWDN);
+ 	if (ret < 0)
+ 		return ret;
+@@ -289,40 +281,40 @@
+ 	return ret;
+ }
+ 
+-static int tfa98xx_mute(struct snd_soc_codec *codec, int mute)
++static int tfa98xx_mute(struct snd_soc_component *codec, int mute)
+ {
+ 	unsigned int status;
+ 	int ret = 0, tries;
+ 
+ 	switch (mute) {
+ 	case TFA98XX_MUTE_OFF:
+-		ret = snd_soc_update_bits_locked(codec,
++		ret = snd_soc_component_update_bits(codec,
+ 				TFA98XX_AUDIO_CTR, TFA98XX_AUDIO_CTR_CFSM_MSK, 0);
+ 		if (ret < 0)
+ 			return ret;
+-		ret = snd_soc_update_bits_locked(codec, TFA98XX_SYS_CTRL,
++		ret = snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+ 				TFA98XX_SYS_CTRL_DCA_MSK | TFA98XX_SYS_CTRL_AMPE_MSK,
+ 				TFA98XX_SYS_CTRL_DCA | TFA98XX_SYS_CTRL_AMPE);
+ 		if (ret < 0)
+ 			return ret;
+ 		break;
+ 	case TFA98XX_MUTE_DIGITAL:
+-		ret = snd_soc_update_bits_locked(codec, TFA98XX_AUDIO_CTR,
++		ret = snd_soc_component_update_bits(codec, TFA98XX_AUDIO_CTR,
+ 				TFA98XX_AUDIO_CTR_CFSM_MSK, TFA98XX_AUDIO_CTR_CFSM);
+ 		if (ret < 0)
+ 			return ret;
+-		ret = snd_soc_update_bits_locked(codec, TFA98XX_SYS_CTRL,
++		ret = snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+ 				TFA98XX_SYS_CTRL_DCA_MSK | TFA98XX_SYS_CTRL_AMPE_MSK,
+ 				TFA98XX_SYS_CTRL_AMPE);
+ 		if (ret < 0)
+ 			return ret;
+ 		break;
+ 	case TFA98XX_MUTE_AMPLIFIER:
+-		ret = snd_soc_update_bits_locked(codec,
++		ret = snd_soc_component_update_bits(codec,
+ 				TFA98XX_AUDIO_CTR, TFA98XX_AUDIO_CTR_CFSM_MSK, 0);
+ 		if (ret < 0)
+ 			return ret;
+-		ret = snd_soc_update_bits_locked(codec, TFA98XX_SYS_CTRL,
++		ret = snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+ 				TFA98XX_SYS_CTRL_DCA_MSK | TFA98XX_SYS_CTRL_AMPE_MSK,
+ 				0);
+ 		if (ret < 0)
+@@ -330,7 +322,7 @@
+ 
+ 		/* wait for amplifier to stop switching */
+ 		for (tries = 10; tries > 0; tries--) {
+-			status = snd_soc_read(codec, TFA98XX_STATUSREG);
++			status = snd_soc_component_read(codec, TFA98XX_STATUSREG);
+ 			if (!(status & TFA98XX_STATUSREG_SWS_MSK))
+ 				break;
+ 			msleep(10);
+@@ -343,50 +335,17 @@
+ 	return ret;
+ }
+ 
+-static int tfa98xx_enable_otc(struct snd_soc_codec *codec, bool recalib)
+-{
+-	unsigned int mtp, status;
+-	int ret = 0, tries;
+-
+-	mtp = snd_soc_read(codec, TFA98XX_MTP_SPKR_CAL);
+-	if (recalib || !(mtp & TFA98XX_MTP_SPKR_CAL_MTPOTC_MSK)) {
+-		ret = snd_soc_write(codec, TFA98XX_MTPKEY2_REG, 0x5A);
+-		if (ret < 0) {
+-			dev_err(codec->dev, "Fail to unlock key(%d)\n", ret);
+-			return ret;
+-		}
+-
+-		mtp &= ~TFA98XX_MTP_SPKR_CAL_MTPEX_MSK;
+-		mtp |= TFA98XX_MTP_SPKR_CAL_MTPOTC_MSK;
+-		ret = snd_soc_write(codec, TFA98XX_MTP_SPKR_CAL, mtp);
+-		if (ret < 0) {
+-			dev_err(codec->dev, "Fail to update mtp(%d)\n", ret);
+-			return ret;
+-		}
+-
+-		ret = snd_soc_update_bits(codec, TFA98XX_MTP_CTRL_REG3,
+-				TFA98XX_MTP_CTRL_REG3_CIMTP_MSK, TFA98XX_MTP_CTRL_REG3_CIMTP);
+-		if (ret < 0) {
+-			dev_err(codec->dev, "Fail to enable mtp copy(%d)\n", ret);
+-			return ret;
+-		}
+-
+-		for (tries = 10; tries > 0; tries--) {
+-			status = snd_soc_read(codec, TFA98XX_STATUSREG);
+-			if (!(status & TFA98XX_STATUSREG_MTPB_MSK))
+-				break;
+-			msleep(100);
+-		}
+-		if (tries == 0) {
+-			dev_err(codec->dev, "Fail to copy mtp on time\n");
+-			return -EBUSY;
+-		}
+-	}
+-
+-	return ret;
+-}
+-
+-static int tfa98xx_download_patch(struct snd_soc_codec *codec,
++static int tfa98xx_enable_otc(struct snd_soc_component *codec, bool recalib)
++{
++	unsigned int mtp=snd_soc_component_read(codec,TFA98XX_MTP_SPKR_CAL);
++	if(recalib || (mtp & 3) != 3) {
++		dev_err(codec->dev,"Factory speaker calibration unavailable; refusing MTP programming\n");
++		return -EOPNOTSUPP;
++	}
++	return 0;
++}
++
++static int tfa98xx_download_patch(struct snd_soc_component *codec,
+ 				  const struct firmware *fw)
+ {
+ 	int ret = -EINVAL;
+@@ -406,7 +365,7 @@
+ 		dev_dbg(codec->dev,
+ 			"Download patch offset = %x, size = %x\n", i, sz);
+ 
+-		ret = snd_soc_bulk_write_raw(codec,
++		ret = tfa98xx_bulk_write(codec,
+ 				fw->data[i], &fw->data[i + 1], sz - 1);
+ 		if (ret < 0) {
+ 			dev_err(codec->dev,
+@@ -418,7 +377,7 @@
+ 	return ret;
+ }
+ 
+-static int tfa98xx_upload_file(struct snd_soc_codec *codec,
++static int tfa98xx_upload_file(struct snd_soc_component *codec,
+ 				int module_id, int param_id,
+ 				void *data, size_t size)
+ {
+@@ -435,7 +394,7 @@
+ 	buf[5] = module_id;
+ 	buf[6] = param_id;
+ 
+-	ret = snd_soc_bulk_write_raw(codec, TFA98XX_CF_CONTROLS, buf, 7);
++	ret = tfa98xx_bulk_write(codec, TFA98XX_CF_CONTROLS, buf, 7);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to write data header(%d)\n", ret);
+ 		return ret;
+@@ -443,14 +402,14 @@
+ 
+ 	/* step 2: wake up dsp and wait done */
+ 	/* CF_CONTROLS: req=1, int=1, aif=0, dmem=1(XMEM), rst_dsp=0 */
+-	ret = snd_soc_write(codec, TFA98XX_CF_CONTROLS, 0x0112);
++	ret = snd_soc_component_write(codec, TFA98XX_CF_CONTROLS, 0x0112);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to wake up dsp(%d)\n", ret);
+ 		return ret;
+ 	}
+ 
+ 	for (tries = 10; tries > 0; tries--) {
+-		status = snd_soc_read(codec, TFA98XX_CF_STATUS);
++		status = snd_soc_component_read(codec, TFA98XX_CF_STATUS);
+ 		if ((status & TFA98XX_CF_STATUS_ACK_MSK) == 0x0100)
+ 			break;
+ 		mdelay(1);
+@@ -466,20 +425,20 @@
+ 	buf[2] = 0x00; /* CF_MAD: addr=0(STATUS) */
+ 	buf[3] = 0x00;
+ 
+-	ret = snd_soc_bulk_write_raw(codec, TFA98XX_CF_CONTROLS, buf, 4);
++	ret = tfa98xx_bulk_write(codec, TFA98XX_CF_CONTROLS, buf, 4);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to write status header(%d)\n", ret);
+ 		return ret;
+ 	}
+ 
+-	status = snd_soc_read(codec, TFA98XX_CF_MEM);
++	status = snd_soc_component_read(codec, TFA98XX_CF_MEM);
+ 	if (status != 0) {
+ 		dev_err(codec->dev, "Fail to upload file(%d)\n", status);
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* step 4: read the data */
+-	ret = snd_soc_write(codec, TFA98XX_CF_MAD, 0x0002);
++	ret = snd_soc_component_write(codec, TFA98XX_CF_MAD, 0x0002);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to write memory address(%d)\n", ret);
+ 		return ret;
+@@ -494,7 +453,7 @@
+ 	return ret;
+ }
+ 
+-static int tfa98xx_download_file(struct snd_soc_codec *codec,
++static int tfa98xx_download_file(struct snd_soc_component *codec,
+ 				 int module_id, int param_id,
+ 				 const void *data, size_t size)
+ {
+@@ -511,14 +470,14 @@
+ 	buf[5] = module_id;
+ 	buf[6] = param_id;
+ 
+-	ret = snd_soc_bulk_write_raw(codec, TFA98XX_CF_CONTROLS, buf, 7);
++	ret = tfa98xx_bulk_write(codec, TFA98XX_CF_CONTROLS, buf, 7);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to write data header(%d)\n", ret);
+ 		return ret;
+ 	}
+ 
+ 	/* step 2: write the data */
+-	ret = snd_soc_bulk_write_raw(codec, TFA98XX_CF_MEM, data, size);
++	ret = tfa98xx_bulk_write(codec, TFA98XX_CF_MEM, data, size);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to write data(%d)\n", ret);
+ 		return ret;
+@@ -526,14 +485,14 @@
+ 
+ 	/* step 3: wake up dsp and wait done */
+ 	/* CF_CONTROLS: req=1, int=1, aif=0, dmem=1(XMEM), rst_dsp=0 */
+-	ret = snd_soc_write(codec, TFA98XX_CF_CONTROLS, 0x0112);
++	ret = snd_soc_component_write(codec, TFA98XX_CF_CONTROLS, 0x0112);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to wake up dsp(%d)\n", ret);
+ 		return ret;
+ 	}
+ 
+ 	for (tries = 10; tries > 0; tries--) {
+-		status = snd_soc_read(codec, TFA98XX_CF_STATUS);
++		status = snd_soc_component_read(codec, TFA98XX_CF_STATUS);
+ 		if ((status & TFA98XX_CF_STATUS_ACK_MSK) == 0x0100)
+ 			break;
+ 		mdelay(1);
+@@ -549,13 +508,13 @@
+ 	buf[2] = 0x00; /* CF_MAD: addr=0(STATUS) */
+ 	buf[3] = 0x00;
+ 
+-	ret = snd_soc_bulk_write_raw(codec, TFA98XX_CF_CONTROLS, buf, 4);
++	ret = tfa98xx_bulk_write(codec, TFA98XX_CF_CONTROLS, buf, 4);
+ 	if (ret < 0) {
+ 		dev_err(codec->dev, "Fail to write status header(%d)\n", ret);
+ 		return ret;
+ 	}
+ 
+-	status = snd_soc_read(codec, TFA98XX_CF_MEM);
++	status = snd_soc_component_read(codec, TFA98XX_CF_MEM);
+ 	if (status != 0) {
+ 		dev_err(codec->dev, "Fail to download file(%d)\n", status);
+ 		return -EINVAL;
+@@ -564,35 +523,40 @@
+ 	return ret;
+ }
+ 
+-static int tfa98xx_download_and_verify_file(struct snd_soc_codec *codec,
++static int tfa98xx_download_and_verify_file(struct snd_soc_component *codec,
+ 					    int module_id, int param_id,
+ 					    const void *data, size_t size)
+ {
+-	u8 buf[size];
++	u8 *buf;
+ 	int ret;
+ 
++	buf = kmalloc(size, GFP_KERNEL);
++	if (!buf) return -ENOMEM;
+ 	ret = tfa98xx_download_file(codec, module_id, param_id, data, size);
+ 	if (ret < 0)
+-		return ret;
++		goto out;
+ 	ret = tfa98xx_upload_file(codec, module_id, param_id, buf, size);
+ 	if (ret < 0)
+-		return ret;
++		goto out;
+ 	if (memcmp(data, buf, size) != 0) {
+ 		dev_err(codec->dev, "Write then read mismatch:\n");
+ 		print_hex_dump(KERN_ERR, "WR ",
+ 			DUMP_PREFIX_ADDRESS, 16, 1, data, size, true);
+ 		print_hex_dump(KERN_ERR, "RD ",
+ 			DUMP_PREFIX_ADDRESS, 16, 1, buf, size, true);
+-		return -EINVAL;
+-	}
+-
++		ret = -EINVAL;
++		goto out;
++	}
++
++out:
++	kfree(buf);
+ 	return ret;
+ }
+ 
+ static void tfa98xx_download(struct work_struct *work)
+ {
+ 	struct tfa98xx_priv *tfa98xx;
+-	struct snd_soc_codec *codec;
++	struct snd_soc_component *codec;
+ 	struct delayed_work *dwork;
+ 	unsigned int mtp;
+ 	int ret = 0, id, tries;
+@@ -604,7 +568,7 @@
+ 	mutex_lock(&tfa98xx->fw_lock);
+ 
+ 	/* wait the clock stable */
+-	if (codec->dapm.bias_level == SND_SOC_BIAS_OFF)
++	if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_OFF)
+ 		goto unlock; /* impossible to get the clock */
+ 
+ 	ret = tfa98xx_wait_clock(codec);
+@@ -696,17 +660,17 @@
+ 	}
+ 
+ 	/* signal dsp to load the setting */
+-	mtp = snd_soc_read(codec, TFA98XX_MTP_SPKR_CAL);
++	mtp = snd_soc_component_read(codec, TFA98XX_MTP_SPKR_CAL);
+ 	if (!(mtp & TFA98XX_MTP_SPKR_CAL_MTPEX_MSK))
+ 		dev_info(codec->dev, "Start one time calibration\n");
+ 	else
+ 		dev_info(codec->dev, "Load the calibration value from mtp\n");
+ 
+-	snd_soc_update_bits_locked(codec, TFA98XX_SYS_CTRL,
++	snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+ 		TFA98XX_SYS_CTRL_SBSL_MSK, TFA98XX_SYS_CTRL_SBSL);
+ 
+ 	for (tries = 10; tries > 0; tries--) {
+-		mtp = snd_soc_read(codec, TFA98XX_MTP_SPKR_CAL);
++		mtp = snd_soc_component_read(codec, TFA98XX_MTP_SPKR_CAL);
+ 		if (mtp & TFA98XX_MTP_SPKR_CAL_MTPEX_MSK)
+ 			break;
+ 		msleep(100);
+@@ -769,11 +733,11 @@
+ 	cancel_delayed_work_sync(&tfa98xx->monitor_work);
+ }
+ 
+-static int tfa98xx_check_error(struct snd_soc_codec *codec)
++static int tfa98xx_check_error(struct snd_soc_component *codec)
+ {
+ 	unsigned int status;
+ 
+-	status = snd_soc_read(codec, TFA98XX_STATUSREG);
++	status = snd_soc_component_read(codec, TFA98XX_STATUSREG);
+ 	if (status & TFA98XX_STATUSREG_ERR2_MSK)
+ 		return 2;
+ 	else if (status & TFA98XX_STATUSREG_ERR1_MSK)
+@@ -789,7 +753,7 @@
+ static void tfa98xx_monitor(struct work_struct *work)
+ {
+ 	struct tfa98xx_priv *tfa98xx;
+-	struct snd_soc_codec *codec;
++	struct snd_soc_component *codec;
+ 	struct delayed_work *dwork;
+ 
+ 	dwork = to_delayed_work(work);
+@@ -832,7 +796,7 @@
+ 	unsigned long val;
+ 	int ret;
+ 
+-	ret = strict_strtoul(buf, 0, &val);
++	ret = kstrtoul(buf, 0, &val);
+ 	if (ret < 0)
+ 		return ret;
+ 	tfa98xx->dsp_crash = (val != 0);
+@@ -852,7 +816,7 @@
+ }
+ static DEVICE_ATTR(pilot_tone, 0444, tfa98xx_pilot_tone_show, NULL);
+ 
+-static int tfa98xx_probe(struct snd_soc_codec *codec)
++static int tfa98xx_probe(struct snd_soc_component *codec)
+ {
+ 	struct tfa98xx_priv *tfa98xx;
+ 	int ret;
+@@ -864,13 +828,14 @@
+ 	}
+ 
+ 	tfa98xx->codec = codec;
++	memcpy(tfa98xx->cache,tfa98xx_reg,sizeof(tfa98xx->cache));
+ 	mutex_init(&tfa98xx->fw_lock);
+ 
+ 	INIT_DELAYED_WORK(&tfa98xx->monitor_work, tfa98xx_monitor);
+ 	INIT_DELAYED_WORK(&tfa98xx->download_work, tfa98xx_download);
+ 
+-	codec->bulk_write_raw = tfa98xx_bulk_write;
+-	snd_soc_codec_set_drvdata(codec, tfa98xx);
++	/* Raw DSP transfers use the MIUI I2C implementation directly. */
++	snd_soc_component_set_drvdata(codec, tfa98xx);
+ 
+ 	tfa98xx->workqueue = create_singlethread_workqueue(dev_name(codec->dev));
+ 	if (tfa98xx->workqueue == NULL) {
+@@ -897,9 +862,9 @@
+ 	return ret;
+ }
+ 
+-static int tfa98xx_remove(struct snd_soc_codec *codec)
+-{
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++static void tfa98xx_remove(struct snd_soc_component *codec)
++{
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 	int id;
+ 
+ 	tfa98xx_stop_monitor(tfa98xx);
+@@ -908,16 +873,16 @@
+ 
+ 	for (id = 0; id < TFA98XX_FW_NUMBER; id++)
+ 		release_firmware(tfa98xx->fw[id]);
++	device_remove_file(codec->dev, &dev_attr_dsp_crash);
++	device_remove_file(codec->dev, &dev_attr_pilot_tone);
+ 	kfree(tfa98xx);
+-
+-	return 0;
+ }
+ 
+ static int tfa98xx_reg_addr_get(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 
+ 	ucontrol->value.integer.value[0] = tfa98xx->reg_addr;
+ 	return 0;
+@@ -926,8 +891,8 @@
+ static int tfa98xx_reg_addr_put(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 
+ 	tfa98xx->reg_addr = ucontrol->value.integer.value[0];
+ 	return 0;
+@@ -936,30 +901,30 @@
+ static int tfa98xx_reg_value_get(struct snd_kcontrol *kcontrol,
+ 				 struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
+-
+-	ucontrol->value.integer.value[0] = snd_soc_read(codec, tfa98xx->reg_addr);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
++
++	ucontrol->value.integer.value[0] = snd_soc_component_read(codec, tfa98xx->reg_addr);
+ 	return 0;
+ }
+ 
+ static int tfa98xx_reg_value_put(struct snd_kcontrol *kcontrol,
+ 				 struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
+-
+-	return snd_soc_write(codec, tfa98xx->reg_addr, ucontrol->value.integer.value[0]);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
++
++	return snd_soc_component_write(codec, tfa98xx->reg_addr, ucontrol->value.integer.value[0]);
+ }
+ 
+ static int tfa98xx_chsa_put(struct snd_kcontrol *kcontrol,
+ 			    struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+ 	bool bypass = ucontrol->value.enumerated.item[0] < 2;
+ 	int ret;
+ 
+-	ret = snd_soc_update_bits_locked(codec, TFA98XX_SYS_CTRL,
++	ret = snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+ 		TFA98XX_SYS_CTRL_CFE_MSK, bypass ? 0 : TFA98XX_SYS_CTRL_CFE);
+ 	if (ret < 0)
+ 		return ret;
+@@ -970,14 +935,14 @@
+ static int tfa98xx_bsst_get(struct snd_kcontrol *kcontrol,
+ 			    struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+ 	unsigned int bsss, bsst;
+ 
+-	bsss   = snd_soc_read(codec, TFA98XX_AUDIO_CTR);
++	bsss   = snd_soc_component_read(codec, TFA98XX_AUDIO_CTR);
+ 	bsss  &= TFA989X_AUDIO_CTR_BSSS_MSK;
+ 	bsss >>= TFA989X_AUDIO_CTR_BSSS_POS;
+ 
+-	bsst   = snd_soc_read(codec, TFA98XX_BAT_PROT);
++	bsst   = snd_soc_component_read(codec, TFA98XX_BAT_PROT);
+ 	bsst  &= TFA989X_BAT_PROT_BSST_MSK;
+ 	bsst >>= TFA989X_BAT_PROT_BSST_POS;
+ 
+@@ -988,18 +953,18 @@
+ static int tfa98xx_bsst_put(struct snd_kcontrol *kcontrol,
+ 			    struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+ 	unsigned int bsss = ucontrol->value.enumerated.item[0] & 1;
+ 	unsigned int bsst = ucontrol->value.enumerated.item[0] >> 1;
+ 	int ret;
+ 
+-	ret = snd_soc_update_bits_locked(codec, TFA98XX_AUDIO_CTR,
++	ret = snd_soc_component_update_bits(codec, TFA98XX_AUDIO_CTR,
+ 			TFA989X_AUDIO_CTR_BSSS_MSK,
+ 			bsss << TFA989X_AUDIO_CTR_BSSS_POS);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = snd_soc_update_bits(codec, TFA98XX_BAT_PROT,
++	ret = snd_soc_component_update_bits(codec, TFA98XX_BAT_PROT,
+ 			TFA989X_BAT_PROT_BSST_MSK,
+ 			bsst << TFA989X_BAT_PROT_BSST_POS);
+ 	if (ret < 0)
+@@ -1011,8 +976,8 @@
+ static int tfa98xx_recalib_get(struct snd_kcontrol *kcontrol,
+ 			       struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 
+ 	ucontrol->value.integer.value[0] = tfa98xx->recalib;
+ 	return 0;
+@@ -1021,8 +986,8 @@
+ static int tfa98xx_recalib_put(struct snd_kcontrol *kcontrol,
+ 			       struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 
+ 	tfa98xx->recalib = !!ucontrol->value.integer.value[0];
+ 	if (tfa98xx->recalib)
+@@ -1042,8 +1007,8 @@
+ static int tfa98xx_firmware_get(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 	unsigned long id = kcontrol->private_value;
+ 
+ 	strcpy(ucontrol->value.bytes.data, tfa98xx->fw_name[id]);
+@@ -1053,8 +1018,8 @@
+ static int tfa98xx_firmware_put(struct snd_kcontrol *kcontrol,
+ 				struct snd_ctl_elem_value *ucontrol)
+ {
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 	unsigned long id = kcontrol->private_value;
+ 	const char *name = ucontrol->value.bytes.data;
+ 	const struct firmware *fw;
+@@ -1197,7 +1162,7 @@
+ 		TFA98XX_BATTERYVOLTAGE_BATS_POS, TFA98XX_BATTERYVOLTAGE_BATS_MAX, 0),
+ 	SOC_SINGLE("Temperature", TFA98XX_TEMPERATURE,
+ 		TFA98XX_TEMPERATURE_TEMPS_POS, TFA98XX_TEMPERATURE_TEMPS_MAX, 0),
+-	SOC_VALUE_ENUM("Input Channel Mux", tfa98xx_chs12_enum),
++	SOC_ENUM("Input Channel Mux", tfa98xx_chs12_enum),
+ 	SOC_ENUM("Gain Channel Mux", tfa98xx_chs3_enum),
+ 	SOC_ENUM_EXT("Amplifier Channel Mux", tfa98xx_chsa_enum,
+ 		snd_soc_get_enum_double, tfa98xx_chsa_put),
+@@ -1250,7 +1215,7 @@
+ 	[TFA98XX_CURRENTSENSE4] =      0xAD93,
+ };
+ 
+-static int tfa98xx_volatile_register(struct snd_soc_codec *codec, unsigned int reg)
++static int tfa98xx_volatile_register(struct snd_soc_component *codec, unsigned int reg)
+ {
+ 	switch (reg) {
+ 	case TFA98XX_I2SREG:
+@@ -1268,7 +1233,7 @@
+ 	}
+ }
+ 
+-static int tfa98xx_writable_register(struct snd_soc_codec *codec, unsigned int reg)
++static int tfa98xx_writable_register(struct snd_soc_component *codec, unsigned int reg)
+ {
+ 	switch (reg) {
+ 	case TFA98XX_STATUSREG:
+@@ -1282,7 +1247,7 @@
+ 	}
+ }
+ 
+-static const struct snd_soc_codec_driver tfa98xx_drv = {
++static const struct snd_soc_component_driver tfa98xx_drv = {
+ 	.probe = tfa98xx_probe,
+ 	.remove = tfa98xx_remove,
+ 	.controls = tfa98xx_controls,
+@@ -1291,12 +1256,7 @@
+ 	.num_dapm_routes = ARRAY_SIZE(tfa98xx_routes),
+ 	.read = tfa98xx_read,
+ 	.write = tfa98xx_write,
+-	.volatile_register = tfa98xx_volatile_register,
+-	.writable_register = tfa98xx_writable_register,
+-	.reg_cache_size = ARRAY_SIZE(tfa98xx_reg),
+-	.reg_word_size = sizeof(tfa98xx_reg[0]),
+-	.reg_cache_default = tfa98xx_reg,
+-	.idle_bias_off = 1,
++	.idle_bias_on = 0,
+ };
+ 
+ #define TFA98XX_FORMATS			(SNDRV_PCM_FMTBIT_S16_LE  | \
+@@ -1308,8 +1268,8 @@
+ 
+ static int tfa98xx_set_format(struct snd_soc_dai *codec_dai, unsigned int fmt)
+ {
+-	struct snd_soc_codec *codec = codec_dai->codec;
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = codec_dai->component;
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 
+ 	/* interface format */
+ 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+@@ -1345,10 +1305,10 @@
+ 	return 0;
+ }
+ 
+-static int tfa98xx_digital_mute(struct snd_soc_dai *codec_dai, int mute)
+-{
+-	struct snd_soc_codec *codec = codec_dai->codec;
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++static int tfa98xx_digital_mute(struct snd_soc_dai *codec_dai, int mute, int direction)
++{
++	struct snd_soc_component *codec = codec_dai->component;
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 
+ 	if (mute) {
+ 		tfa98xx_stop_monitor(tfa98xx);
+@@ -1373,8 +1333,8 @@
+ 			     struct snd_pcm_hw_params *params,
+ 			     struct snd_soc_dai *dai)
+ {
+-	struct snd_soc_codec *codec = dai->codec;
+-	struct tfa98xx_priv *tfa98xx = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = dai->component;
++	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
+ 	unsigned int value = 0;
+ 
+ 	switch (tfa98xx->fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+@@ -1439,13 +1399,13 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	return snd_soc_update_bits_locked(codec, TFA98XX_I2SREG,
++	return snd_soc_component_update_bits(codec, TFA98XX_I2SREG,
+ 			TFA98XX_I2SREG_I2SSR_MSK | TFA98XX_I2SREG_I2SF_MSK, value);
+ }
+ 
+ static const struct snd_soc_dai_ops tfa98xx_dai_ops = {
+ 	.set_fmt = tfa98xx_set_format,
+-	.digital_mute = tfa98xx_digital_mute,
++	.mute_stream = tfa98xx_digital_mute,
+ 	.hw_params = tfa98xx_hw_params,
+ };
+ 
+@@ -1466,20 +1426,13 @@
+ 		.channels_min = 2,
+ 		.channels_max = 2,
+ 	},
+-	.symmetric_rates = 1,
+-};
+-
+-static int tfa98xx_i2c_probe(struct i2c_client *client,
+-			     const struct i2c_device_id *id)
+-{
+-	return snd_soc_register_codec(&client->dev,
++	.symmetric_rate = 1,
++};
++
++static int tfa98xx_i2c_probe(struct i2c_client *client)
++{
++	return devm_snd_soc_register_component(&client->dev,
+ 			&tfa98xx_drv, &tfa98xx_dai, 1);
+-}
+-
+-static int tfa98xx_i2c_remove(struct i2c_client *client)
+-{
+-	snd_soc_unregister_codec(&client->dev);
+-	return 0;
+ }
+ 
+ static void tfa98xx_i2c_shutdown(struct i2c_client *client)
+@@ -1502,7 +1455,6 @@
+ 		.owner = THIS_MODULE,
+ 	},
+ 	.probe = tfa98xx_i2c_probe,
+-	.remove = tfa98xx_i2c_remove,
+ 	.shutdown = tfa98xx_i2c_shutdown,
+ 	.id_table = tfa98xx_i2c_id,
+ };

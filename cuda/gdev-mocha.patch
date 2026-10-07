@@ -1,0 +1,332 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -5,6 +5,8 @@
+ SET(CMAKE_BUILD_TYPE Release)
+ 
+ PROJECT(Gdev)
++INCLUDE_DIRECTORIES(/usr/include/arm-linux-gnueabihf /usr/include/libdrm/nouveau)
++ADD_COMPILE_OPTIONS(-fcommon -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types -Wno-error=int-conversion)
+ SET(serial "1.0.0")
+ SET(soserial "1")
+ 
+--- a/common/gdev_api.c
++++ b/common/gdev_api.c
+@@ -226,7 +226,7 @@
+ 		if (id)
+ 			*id = 0;
+ 	}
+-	else if (size <= GDEV_MEMCPY_IOWRITE_LIMIT && mem->map) {
++	else if ((size <= GDEV_MEMCPY_IOWRITE_LIMIT || vas->gdev->chipset == 0xea) && mem->map) {
+ 		ret = gdev_write(mem, dst_addr, src_buf, size);
+ 		/* if @id is give while not asynchronous, give it zero. */
+ 		if (id)
+@@ -437,7 +437,7 @@
+ 		if (id)
+ 			*id = 0;
+ 	}
+-	else if (size <= GDEV_MEMCPY_IOREAD_LIMIT && mem->map) {
++	else if ((size <= GDEV_MEMCPY_IOREAD_LIMIT || vas->gdev->chipset == 0xea) && mem->map) {
+ 		ret = gdev_read(mem, dst_buf, src_addr, size);
+ 		/* if @id is given despite not asynchronous, give it zero. */
+ 		if (id)
+--- a/common/gdev_device.c
++++ b/common/gdev_device.c
+@@ -96,13 +96,19 @@
+ 
+ 	/* architecture-dependent chipset. 
+ 	   this call must be prior to the following. */
+-	gdev_query(gdev, GDEV_QUERY_CHIPSET, (uint64_t*) &gdev->chipset);
++	{
++        uint64_t chipset = 0;
++        if (gdev_query(gdev, GDEV_QUERY_CHIPSET, &chipset))
++            return -EINVAL;
++        gdev->chipset = chipset;
++    }
+ 
+ 	/* device memory size available for users. */
+ 	gdev_query(gdev, GDEV_QUERY_DEVICE_MEM_SIZE, &gdev->mem_size);
+ 	/* FIXME: substract the amount of memory used not for users' data but
+ 	   this shouldn't be hardcoded. */
+-	gdev->mem_size -= 0xc010000;
++	if (gdev->mem_size > 0xc010000)
++        gdev->mem_size -= 0xc010000;
+ 
+ 	/* host DMA memory size available for users. */
+ 	gdev_query(gdev, GDEV_QUERY_DMA_MEM_SIZE, &gdev->dma_mem_size);
+--- a/common/gdev_nvidia_nve4.c
++++ b/common/gdev_nvidia_nve4.c
+@@ -25,6 +25,10 @@
+  */
+ 
+ #include "gdev_nvidia_nve4.h"
++#ifdef GDEV_DRIVER_NOUVEAU
++#include "nouveau.h"
++#endif
++
+ 
+ 
+ /* static objects. */
+@@ -357,7 +361,15 @@
+ 
+ static uint32_t nve4_fence_read(struct gdev_ctx *ctx, uint32_t sequence)
+ {
+-    return ((struct gdev_nve4_query*)(ctx->fence.map))[sequence].sequence;
++
++#ifdef GDEV_DRIVER_NOUVEAU
++    /* ARM shared-memory CPU access must follow the DRM GPU fence. */
++    struct nouveau_client *client = ctx->vas->gdev->priv;
++    if (nouveau_bo_wait(ctx->fence.bo, NOUVEAU_BO_RD, client))
++        return ~0u;
++#endif
++    __sync_synchronize();
++    return ((volatile struct gdev_nve4_query*)(ctx->fence.map))[sequence].sequence;
+ }
+ 
+ static void nve4_fence_write(struct gdev_ctx *ctx, int subch, uint32_t sequence)
+@@ -401,7 +413,8 @@
+ 
+ static void nve4_fence_reset(struct gdev_ctx *ctx, uint32_t sequence)
+ {
+-    ((struct gdev_nve4_query*)(ctx->fence.map))[sequence].sequence = ~0;
++    ((volatile struct gdev_nve4_query*)(ctx->fence.map))[sequence].sequence = ~0;
++    __sync_synchronize();
+ }
+ 
+ unsigned min2(unsigned a,unsigned b)
+--- a/cuda/driver/device.c
++++ b/cuda/driver/device.c
+@@ -133,6 +133,10 @@
+ 		*major = 3;
+ 		*minor = 0;
+ 		break;
++    case 0x0ea: /* Tegra K1 GK20A, compute capability 3.2. */
++        *major = 3;
++        *minor = 2;
++        break;
+ 	case 0x0f0:
+ 	case 0x108:
+ 		*major = 3;
+@@ -263,6 +267,16 @@
+ 		return CUDA_ERROR_UNKNOWN;
+ 	}
+ 
++    /* Integrated GK20A is not a PCI device: query its real SM count. */
++    if (chipset == 0xea && attrib == CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) {
++        uint64_t count = 0;
++        int result = gquery(handle, GDEV_NVIDIA_QUERY_MP_COUNT, &count);
++        __gclose(handle);
++        if (result || !count)
++            return CUDA_ERROR_UNKNOWN;
++        *pi = count;
++        return CUDA_SUCCESS;
++    }
+ 	switch (attrib) {
+ 	case CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT:
+ 	case CU_DEVICE_ATTRIBUTE_ECC_ENABLED:
+--- a/cuda/driver/module.c
++++ b/cuda/driver/module.c
+@@ -142,6 +142,25 @@
+ 		goto fail_gmemcpy_code;
+ 	}
+ 
++
++    /* Diagnostic readback: compare real GPU memory before executing it. */
++    {
++        unsigned char check[4096];
++        unsigned int offset = 0;
++        GDEV_PRINT("MOCHA_CODE_BYTES=%u ADDRESS=%llx\n", mod->code_size, (unsigned long long)mod->code_addr);
++        while (offset < mod->code_size) {
++            unsigned int amount = mod->code_size - offset;
++            if (amount > sizeof(check)) amount = sizeof(check);
++            if (gmemcpy_from_device(handle, check, mod->code_addr + offset, amount) ||
++                memcmp(check, (unsigned char *)bnc_buf + offset, amount)) {
++                GDEV_PRINT("MOCHA_CODE_READBACK_MISMATCH_OFFSET=%u\n", offset);
++                res = CUDA_ERROR_UNKNOWN;
++                goto fail_gmemcpy_code;
++            }
++            offset += amount;
++        }
++        GDEV_PRINT("MOCHA_CODE_READBACK=PASS\n");
++    }
+ 	/* free the bounce buffer now. */
+ 	FREE(bnc_buf);
+ 
+@@ -353,6 +372,25 @@
+ 		goto fail_gmemcpy_code;
+ 	}
+ 
++
++    /* Diagnostic readback: compare real GPU memory before executing it. */
++    {
++        unsigned char check[4096];
++        unsigned int offset = 0;
++        GDEV_PRINT("MOCHA_CODE_BYTES=%u ADDRESS=%llx\n", mod->code_size, (unsigned long long)mod->code_addr);
++        while (offset < mod->code_size) {
++            unsigned int amount = mod->code_size - offset;
++            if (amount > sizeof(check)) amount = sizeof(check);
++            if (gmemcpy_from_device(handle, check, mod->code_addr + offset, amount) ||
++                memcmp(check, (unsigned char *)bnc_buf + offset, amount)) {
++                GDEV_PRINT("MOCHA_CODE_READBACK_MISMATCH_OFFSET=%u\n", offset);
++                res = CUDA_ERROR_UNKNOWN;
++                goto fail_gmemcpy_code;
++            }
++            offset += amount;
++        }
++        GDEV_PRINT("MOCHA_CODE_READBACK=PASS\n");
++    }
+ 	/* free the bounce buffer now. */
+ 	FREE(bnc_buf);
+ 
+--- a/lib/user/gdev/gdev_lib.c
++++ b/lib/user/gdev/gdev_lib.c
+@@ -412,6 +412,11 @@
+ 
+ int gdev_getinfo_device_count(void)
+ {
++#if defined(GDEV_DRIVER_NOUVEAU)
++    extern int gdev_nouveau_device_count(void);
++    return gdev_nouveau_device_count();
++#endif
++
+ 	char fname[256] = { 0 };
+ 	int minor = 0;
+ 	int shmid;
+--- a/lib/user/nouveau/nouveau_gdev.c
++++ b/lib/user/nouveau/nouveau_gdev.c
+@@ -70,8 +70,24 @@
+ 
+ void __nouveau_fifo_kick(struct gdev_ctx *ctx)
+ {
+-	struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
+-	nouveau_pushbuf_kick(push, push->channel);
++    struct nouveau_pushbuf *push = (struct nouveau_pushbuf *)ctx->pctx;
++    struct nouveau_bufctx *bufctx = push->user_priv;
++    struct gdev_mem *mem;
++    /* Keep code, data and local memory resident for this submission. */
++    nouveau_bufctx_reset(bufctx, 1);
++    gdev_list_for_each(mem, &ctx->vas->mem_list, list_entry_heap) {
++        struct nouveau_bo *bo = mem->bo;
++        nouveau_bufctx_refn(bufctx, 1, bo,
++            (bo->flags & (NOUVEAU_BO_GART | NOUVEAU_BO_VRAM)) | NOUVEAU_BO_RDWR);
++    }
++    gdev_list_for_each(mem, &ctx->vas->dma_mem_list, list_entry_heap) {
++        struct nouveau_bo *bo = mem->bo;
++        nouveau_bufctx_refn(bufctx, 1, bo, NOUVEAU_BO_GART | NOUVEAU_BO_RDWR);
++    }
++    if (nouveau_pushbuf_validate(push) || nouveau_pushbuf_kick(push, push->channel)) {
++        GDEV_PRINT("MOCHA_GPU_SUBMISSION_FAILED\n");
++        abort();
++    }
+ }
+ 
+ void __nouveau_fifo_update_get(struct gdev_ctx *ctx)
+@@ -109,6 +125,14 @@
+ 	case GDEV_QUERY_DEVICE_MEM_SIZE:
+ 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_FB_SIZE, result))
+ 			goto fail;
++        /* GK20A shares system RAM and has no dedicated VRAM. */
++        if (dev->chipset == 0xea && !*result) {
++            long pages = sysconf(_SC_PHYS_PAGES);
++            long size = sysconf(_SC_PAGESIZE);
++            if (pages <= 0 || size <= 0)
++                goto fail;
++            *result = (uint64_t)pages * (uint64_t)size;
++        }
+ 		break;
+ 	case GDEV_QUERY_DMA_MEM_SIZE:
+ 		if (nouveau_getparam(dev, NOUVEAU_GETPARAM_AGP_SIZE, result))
+@@ -161,6 +185,7 @@
+ 	}
+ 
+ 	if (!(version = drmGetVersion(fd))) {
++		close(fd);
+ 		return -ENOSYS;
+ 	}
+ 
+@@ -170,6 +195,7 @@
+ 		return fd;
+ 	}
+ 
++	close(fd);
+ 	return -ENODEV;
+ }
+ 
+@@ -198,6 +224,10 @@
+ 		}
+ 	}
+ 
++	/* Render and primary nodes are aliases of the same GPUs. */
++	if (count)
++		return -ENODEV;
++
+ 	/* Opening legacy card%d dev */
+ 	for (i = 0; i < DRM_MAX_MINOR; ++i) {
+ 		int fd = 0;
+@@ -211,6 +241,17 @@
+ 	return -ENODEV;
+ }
+ 
++
++/* Count the same Nouveau GPU nodes used by device opening. */
++int gdev_nouveau_device_count(void)
++{
++    int count = 0, fd;
++    while ((fd = __gdev_open_by_ordinal("nouveau", count)) >= 0) {
++        close(fd);
++        ++count;
++    }
++    return count;
++}
+ 
+ /* open a new Gdev object associated with the specified device. */
+ struct gdev_device *gdev_raw_dev_open(int minor)
+@@ -408,7 +449,7 @@
+ 	if (ret)
+ 		goto fail_pushbuf;
+ 
+-	ret = nouveau_bufctx_new(client, 1, &bufctx);
++	ret = nouveau_bufctx_new(client, 0x51, &bufctx);
+ 	if (ret)
+ 		goto fail_bufctx;
+ 
+@@ -469,7 +510,7 @@
+ 	ctx->fence.seq = 0;
+ 
+ 	/* interrupt buffer. */
+-	notify_domain = NOUVEAU_BO_VRAM;
++	notify_domain = dev->chipset == 0xea ? NOUVEAU_BO_GART : NOUVEAU_BO_VRAM;
+ 	ret = nouveau_bo_new(dev, notify_domain, 0, 8 /* 64 bits */, NULL, &notify_bo);
+ 	if (ret)
+ 		goto fail_notify_alloc;
+@@ -651,7 +692,7 @@
+ /* allocate a new device memory object. size may be aligned. */
+ struct gdev_mem *gdev_raw_mem_alloc(struct gdev_vas *vas, uint64_t size)
+ {
+-	uint32_t flags = NOUVEAU_BO_VRAM;
++	uint32_t flags = vas->gdev->chipset == 0xea ? (NOUVEAU_BO_GART | NOUVEAU_BO_MAP) : NOUVEAU_BO_VRAM;
+ 
+ 	if (size <= GDEV_MEM_MAPPABLE_LIMIT)
+ 		flags |= NOUVEAU_BO_MAP;
+@@ -714,7 +755,10 @@
+ 	uint32_t val;
+ 
+ 	if (bo->map) {
+-		val = *(uint32_t*)(bo->map + offset);
++        struct nouveau_client *client = mem->vas->gdev->priv;
++        if (nouveau_bo_wait(bo, NOUVEAU_BO_RD, client)) return 0;
++        __sync_synchronize();
++        val = *(volatile uint32_t*)(bo->map + offset);
+ 	}
+ 	else {
+ 		/* libnvi doesn't support direct device read. */
+@@ -743,6 +787,10 @@
+ 	uint64_t offset = addr - bo->offset;
+ 
+ 	if (bo->map) {
++        struct nouveau_client *client = mem->vas->gdev->priv;
++        int result = nouveau_bo_wait(bo, NOUVEAU_BO_RD, client);
++        if (result) return result;
++        __sync_synchronize();
+ 		gdev_io_memcpy(buf, bo->map + offset, size);
+ 		return 0;
+ 	}
