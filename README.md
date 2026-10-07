@@ -15,8 +15,8 @@
 bash tools/build-backlight.sh ../mocha-moze-linux ../artifacts/kernel
 # 安装到同一release的模块目录，depmod后加载；不要自动启用音频实验。
 sudo make -C ../mocha-moze-linux O="$(realpath ../artifacts/kernel)" \
- ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- M="$PWD/backlight" \
- INSTALL_MOD_PATH="$(realpath ../artifacts/rootfs)" modules_install
+ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION= M="$PWD/backlight" \
+ INSTALL_MOD_PATH="$(realpath ../artifacts/rootfs)" INSTALL_MOD_STRIP=1 modules_install
 ```
 
 ALSA/PipeWire服务启动不等于扬声器存在；Wi-Fi菜单出现不等于蓝牙硬件配对完成。
