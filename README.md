@@ -28,6 +28,8 @@
 
 `mocha_miui_backlight.c` 出自 MiCode Mocha 的 `lp855x_bl.c`，改成 I2C 驱动形态。probe 时继承 bootloader 留下的亮度和控制寄存器状态，正常使用只写亮度寄存器 `0x00` 和使能位；只有芯片报告在断电后丢失配置时，才按 `recover[]` 表恢复那 10 个官方寄存器值。设备树 compatible 为 `xiaomi,mocha-miui-lp8556`，`max_brightness` 为 255。这个驱动在实机上亮度调节有效。
 
+2026-10-10 新 native 内核的 RAM 实测中，修复后的匹配模块 `insmod` 返回 0，继承亮度 31，成功注册背光；随后的面板延迟 probe 完成，Tegra DRM 变为 connected/enabled。色块期间临时写入 96 并恢复 31，用户确认背光亮但黑屏。模块加载已验证，物理图像输出仍未通过；这次没有验证亮度刻度关系。记录见总入口的 [RAM 诊断](https://github.com/Pisces-Moze/mocha-moze-debian/blob/codex/mocha-diagnostics-2026-10-09/docs/DIAGNOSTICS-2026-10-10.md)。
+
 ### audio
 
 树外代码覆盖三块内容：TFA9890 codec 移植、RT5671 machine 驱动、以及两个临时探测模块。编译通过，但 codec 侧返回 NACK，扬声器和麦克风都还没打通。
