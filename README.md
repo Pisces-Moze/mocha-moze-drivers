@@ -77,7 +77,7 @@ cc -O2 probe-gdev-kernel.c -ldl -o probe-gdev-kernel
 
 ## 构建与部署
 
-前置条件：交叉工具链前缀 `arm-linux-gnueabihf-`，已经在 `mocha-moze-linux` 里用 stable 配置构建过一次的 `O=` 输出目录，且里面有 `Module.symvers`。
+前置条件：交叉工具链前缀 `arm-linux-gnueabihf-`、`kmod` 提供的 `modinfo`，已经在 `mocha-moze-linux` 里构建完成的目标 profile 的 `O=` 输出目录，且里面有 `Module.symvers` 与 `include/config/kernel.release`。
 
 `tools/build-backlight.sh` 做的就是这件事：
 
@@ -85,7 +85,7 @@ cc -O2 probe-gdev-kernel.c -ldl -o probe-gdev-kernel
 bash tools/build-backlight.sh ../mocha-moze-linux ../artifacts/kernel
 ```
 
-脚本内容对应的完整命令：
+脚本先对外部模块执行 `make ... M="$PWD/backlight" clean`，再执行下面的编译命令，最后检查 `.ko` 的 vermagic 中的 release 与目标 `O=` 完全一致。切换 `O=` 时，Kbuild 可能复用另一套内核生成的 `.mod.o`；本次实际重现 native 构建返回成功却留下 stable vermagic，清理与断言用于防止这种混用。
 
 ```sh
 make -C ../mocha-moze-linux O="$(realpath ../artifacts/kernel)" \
@@ -95,7 +95,9 @@ make -C ../mocha-moze-linux O="$(realpath ../artifacts/kernel)" \
 
 几个变量的含义：`O=` 指向内核 out-of-tree 构建输出目录，脚本要求该目录已存在 `Module.symvers`，否则直接退出；`ARCH=arm` 与 `CROSS_COMPILE=arm-linux-gnueabihf-` 决定交叉工具链；`M="$PWD/backlight"` 说明这是外部模块，只编 backlight 目录；`LOCALVERSION=` 清空内核本地版本后缀。
 
-`LOCALVERSION` 会进 vermagic。目标内核如果是 6.12.111-moze.1，而模块的 vermagic 带 `-moze.1` 后缀，两边对不上时 insmod 会被拒绝。编这一版用的是空 `LOCALVERSION`，所以脚本里显式写上，避免继承 shell 环境里残留的值。
+`LOCALVERSION` 会进 vermagic。脚本清空 shell 的 `LOCALVERSION`，避免意外追加后缀；内核配置的 `CONFIG_LOCALVERSION` 仍保留，所以 stable 的目标 release 是 `6.12.111-moze.1`，native 是 `6.12.111-moze.1-native`。模块必须匹配实际启动内核的完整 release。
+
+2026-10-10 已针对两份完整内核输出执行 stable→native→stable 交叉构建；三次检查均匹配对应 release。修复后的 native 模块 SHA256 为 `5cb1c425c994e60cb5cb38a82a6ed946179a3fd55fa3d254bba317a4f36e1f10`，stable 为 `628848de93211c37659d50f06bf1795f67c52395e7675477402335374ad8daaf`。本次只证明模块构建与版本匹配，新内核上的加载及实际亮度变化仍待实机验收。
 
 把模块装到同一个 release 的模块目录，再跑 depmod：
 
