@@ -12,6 +12,10 @@
 
 同属这个工程的还有 [mocha-moze-debian](https://github.com/Pisces-Moze/mocha-moze-debian)（总入口、rootfs 与安装文档）、[mocha-moze-boot](https://github.com/Pisces-Moze/mocha-moze-boot)（U-Boot 链式引导）、[mocha-moze-linux](https://github.com/Pisces-Moze/mocha-moze-linux)（6.12.111 内核与两套设备树）和 [mocha-moze-desktop](https://github.com/Pisces-Moze/mocha-moze-desktop)（Niri/Noctalia 桌面与充电界面）。
 
+## GPU 性能交接（2026-10-11）
+
+已验证的原厂 OPP 充电/温度策略与待测 PMU 参数补丁见 [gpu/README.md](gpu/README.md)。当前约 60 FPS 测量使用上游 Nouveau，不依赖该 PMU 实验；没有添加超频或电压状态。
+
 ## 目录与模块
 
 | 目录 | 内容 | 状态 | 限制 |
