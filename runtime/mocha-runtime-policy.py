@@ -127,6 +127,7 @@ def main():
             # Apply the cap before permitting the governor to ramp frequency.
             node.joinpath('scaling_max_freq').write_text(str(stock_ceiling(frequencies,1200000)))
             node.joinpath('scaling_governor').write_text('schedutil')
+        for node, _, _, _ in originals:verify_hardware_rate(node)
         start_zram()
         hot=False
         last=None
@@ -141,6 +142,7 @@ def main():
                 cap=stock_ceiling(frequencies,ceiling)
                 if int(node.joinpath('scaling_max_freq').read_text())!=cap:
                     node.joinpath('scaling_max_freq').write_text(str(cap))
+                    verify_hardware_rate(node)
                 caps.append(cap)
             if int(swappiness.read_text())!=preference['swappiness']:
                 swappiness.write_text(str(preference['swappiness']))
