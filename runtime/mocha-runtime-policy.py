@@ -134,6 +134,14 @@ def main():
     swappiness=Path('/proc/sys/vm/swappiness')
     previous_swappiness=swappiness.read_text()
     try:
+        # Respect the user's lower cap, current display state and thermal
+        # protection before schedutil can ramp; the first loop is too late.
+        preference=settings(config)
+        hot=thermal_latch(False,temperatures())
+        display_on=any(node.read_text().strip()=='On' for node in SYS.glob('class/drm/card*-DSI-1/dpms'))
+        initial_ceiling=min(preference['cpu_max_mhz']*1000,
+                            792000 if hot else 1200000,
+                            1200000 if display_on else 510000)
         for node in policies:
             frequencies=[int(value) for value in node.joinpath('scaling_available_frequencies').read_text().split()]
             governors=node.joinpath('scaling_available_governors').read_text().split()
@@ -141,11 +149,10 @@ def main():
             originals.append((node, node.joinpath('scaling_governor').read_text(),
                               node.joinpath('scaling_max_freq').read_text(), frequencies))
             # Apply the cap before permitting the governor to ramp frequency.
-            node.joinpath('scaling_max_freq').write_text(str(stock_ceiling(frequencies,1200000)))
+            node.joinpath('scaling_max_freq').write_text(str(stock_ceiling(frequencies,initial_ceiling)))
             node.joinpath('scaling_governor').write_text('schedutil')
         for node, _, _, _ in originals:verify_hardware_rate(node)
         start_zram()
-        hot=False
         last=None
         while running:
             preference=settings(config)

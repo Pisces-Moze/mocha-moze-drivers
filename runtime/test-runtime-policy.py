@@ -5,13 +5,51 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import sys
 from unittest.mock import patch
+from types import SimpleNamespace
 
 spec=importlib.util.spec_from_file_location('runtime_policy',Path(__file__).with_name('mocha-runtime-policy.py'))
 policy=importlib.util.module_from_spec(spec);spec.loader.exec_module(policy)
 
 
 class RuntimePolicy(unittest.TestCase):
+    def test_startup_never_briefly_exceeds_user_thermal_or_screen_cap(self):
+        for user_cap,screen_on,temp,expected in ((600,True,65000,510000),
+                                                (1020,False,65000,510000),
+                                                (1020,True,81000,714000),
+                                                (1020,True,65000,1020000)):
+            with self.subTest(user_cap=user_cap,screen_on=screen_on,temp=temp),tempfile.TemporaryDirectory() as folder:
+                root=Path(folder)
+                node=root/'devices/system/cpu/cpufreq/policy0';node.mkdir(parents=True)
+                for name,value in {'scaling_governor':'powersave','scaling_max_freq':'612000',
+                                   'scaling_available_frequencies':'204000 306000 408000 510000 612000 714000 816000 918000 1020000 1122000',
+                                   'scaling_available_governors':'powersave schedutil'}.items():
+                    (node/name).write_text(value)
+                dpms=root/'class/drm/card1-DSI-1/dpms';dpms.parent.mkdir(parents=True);dpms.write_text('On' if screen_on else 'Off')
+                config=root/'.config/mocha/runtime.json';config.parent.mkdir(parents=True)
+                config.write_text(json.dumps({'cpu_max_mhz':user_cap}))
+                swappiness=root/'swappiness';swappiness.write_text('60')
+                writes=[]
+                original_write=Path.write_text
+                def write(path,data,*args,**kwargs):
+                    if path==node/'scaling_max_freq':writes.append(int(data))
+                    return original_write(path,data,*args,**kwargs)
+                def sleep(_):policy.running=False
+                policy.running=True
+                with patch.object(policy,'SYS',root),patch.dict(sys.modules,{'pwd':SimpleNamespace(getpwnam=lambda _:SimpleNamespace(pw_dir=str(root)))}),\
+                     patch.object(policy.os,'geteuid',return_value=0,create=True),patch.object(policy.os,'uname',return_value=SimpleNamespace(release='fixture-native-runtime'),create=True),\
+                     patch.object(policy,'temperatures',return_value=[temp]),patch.object(policy,'verify_hardware_rate'),\
+                     patch.object(policy,'start_zram'),patch.object(policy.time,'sleep',side_effect=sleep),\
+                     patch.object(Path,'write_text',autospec=True,side_effect=write),\
+                     patch.object(policy,'Path',side_effect=lambda value:swappiness if value=='/proc/sys/vm/swappiness' else Path(value)):
+                    policy.main()
+                self.assertEqual(writes[0],expected)
+                self.assertTrue(all(value<=expected for value in writes[:-1]))
+                self.assertEqual(writes[-1],612000)
+                self.assertEqual((node/'scaling_governor').read_text(),'powersave')
+                self.assertEqual(swappiness.read_text(),'60')
+
     def test_cached_request_is_not_hardware_acceptance(self):
         self.assertFalse(policy.rate_matches(204000000,1874250000))
         self.assertTrue(policy.rate_matches(204000000,204000000))
