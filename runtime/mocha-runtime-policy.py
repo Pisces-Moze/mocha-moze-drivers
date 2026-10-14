@@ -45,6 +45,26 @@ def thermal_latch(hot, temperatures):
     return hot and max(temperatures) > 72000
 
 
+def rate_matches(requested, measured):
+    # DFLL's monitor is quantized by a 51 MHz reference / four cycles.
+    # CCF/scaling_cur_freq alone can report an unapplied software request.
+    return requested > 0 and measured > 0 and abs(requested-measured) <= max(25500000,requested//10)
+
+
+def verify_hardware_rate(node):
+    monitor=SYS/'kernel/debug/tegra_dfll_fcpu/rate'
+    for _ in range(5):
+        before=int(node.joinpath('scaling_cur_freq').read_text())*1000
+        time.sleep(.02)
+        measured=int(monitor.read_text())
+        after=int(node.joinpath('scaling_cur_freq').read_text())*1000
+        if before==after:
+            if not rate_matches(after,measured):
+                raise ValueError(f'DFLL monitor {measured} Hz does not follow CPUFreq {after} Hz; refuse runtime policy')
+            return
+    raise ValueError('No stable CPU/DFLL sample; refuse runtime policy')
+
+
 def temperatures():
     values=[]
     for node in SYS.glob('class/thermal/thermal_zone*'):
@@ -90,6 +110,9 @@ def main():
         raise ValueError('Use the separately validated native-runtime kernel')
     policies=list(SYS.glob('devices/system/cpu/cpufreq/policy*'))
     if not policies:raise ValueError('No CPU DVFS policy exposed')
+    # This gate runs before any frequency/governor/swap change. A mismatch is
+    # a hardware-control failure, not something a governor ceiling repairs.
+    for node in policies:verify_hardware_rate(node)
     config=Path(pwd.getpwnam('mocha').pw_dir) / '.config/mocha/runtime.json'
     originals=[]
     swappiness=Path('/proc/sys/vm/swappiness')

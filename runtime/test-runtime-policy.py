@@ -12,6 +12,24 @@ policy=importlib.util.module_from_spec(spec);spec.loader.exec_module(policy)
 
 
 class RuntimePolicy(unittest.TestCase):
+    def test_cached_request_is_not_hardware_acceptance(self):
+        self.assertFalse(policy.rate_matches(204000000,1874250000))
+        self.assertTrue(policy.rate_matches(204000000,204000000))
+        self.assertTrue(policy.rate_matches(204000000,216750000))
+        self.assertFalse(policy.rate_matches(0,0))
+
+    def test_mismatched_dfll_refuses_before_policy_application(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            monitor=root/'kernel/debug/tegra_dfll_fcpu/rate'
+            monitor.parent.mkdir(parents=True)
+            monitor.write_text('1874250000')
+            node=root/'policy0';node.mkdir()
+            (node/'scaling_cur_freq').write_text('204000')
+            with patch.object(policy,'SYS',root),patch.object(policy.time,'sleep'):
+                with self.assertRaisesRegex(ValueError,'does not follow CPUFreq'):
+                    policy.verify_hardware_rate(node)
+
     def test_no_frequency_is_invented_or_rounded_up(self):
         stock=[204000,510000,696000,1020000,1224000]
         self.assertEqual(policy.stock_ceiling(stock,1200000),1020000)
