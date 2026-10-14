@@ -25,6 +25,8 @@ low_voltage=0
 ready=0
 gauge=/sys/class/power_supply/bq27520g4-0
 charger=/sys/class/power_supply/bq24190-charger
+settings_home=$(getent passwd mocha | cut -d: -f6)
+limit_file=$settings_home/.config/mocha/gpu-max-pstate
 while :; do
     temperature=$(cat "$thermal")
     [ "$temperature" -lt 75000 ] || hot=1
@@ -56,6 +58,11 @@ while :; do
     else
         requested=0f
     fi
+    # The desktop may request a lower stock ceiling, never override thermal,
+    # low-voltage or weak-input restrictions. Treat every other value as the
+    # existing default; do not evaluate user-provided shell text.
+    limit=$(cat "$limit_file" 2>/dev/null || true)
+    if [ "$requested" = 0f ] && [ "$limit" = 0a ]; then requested=0a; fi
     if [ "$previous" != "$requested" ]; then
         printf '%s\n' "$requested" > "$pstate"
         printf 'MOCHA_GPU_POLICY state=%s temperature=%s voltage=%s input_ua=%s\n' "$requested" "$temperature" "$voltage" "$input"
