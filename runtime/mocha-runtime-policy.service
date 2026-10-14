@@ -1,0 +1,18 @@
+[Unit]
+Description=Mocha native-runtime CPU and RAM swap policy
+After=systemd-modules-load.service
+ConditionKernelVersion=*-native-runtime
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/mocha-runtime-policy.py
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/sys/devices/system/cpu/cpufreq /sys/block /proc/sys/vm/swappiness
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
