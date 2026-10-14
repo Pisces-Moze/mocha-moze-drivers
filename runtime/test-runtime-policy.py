@@ -36,6 +36,30 @@ class RuntimePolicy(unittest.TestCase):
         self.assertEqual(policy.stock_ceiling(stock,792000),696000)
         with self.assertRaises(ValueError):policy.stock_ceiling(stock,100000)
 
+    def test_transient_samples_need_two_consecutive_matches(self):
+        root=Path('/fixture')
+        monitor=root/'kernel/debug/tegra_dfll_fcpu/rate'
+        node=root/'policy0'
+        values=iter(['900000000']*3+['221000000']*2)
+        samples=[]
+        def read(path, *args, **kwargs):
+            if path==monitor:
+                value=next(values);samples.append(value);return value
+            return '204000'
+        with patch.object(policy,'SYS',root),patch.object(Path,'read_text',autospec=True,side_effect=read),patch.object(policy.time,'sleep'):
+            policy.verify_hardware_rate(node)
+        self.assertEqual(len(samples),5)
+
+    def test_isolated_matching_sample_does_not_hide_failure(self):
+        root=Path('/fixture')
+        monitor=root/'kernel/debug/tegra_dfll_fcpu/rate'
+        values=iter(['221000000','1874250000']*10)
+        def read(path, *args, **kwargs):
+            return next(values) if path==monitor else '204000'
+        with patch.object(policy,'SYS',root),patch.object(Path,'read_text',autospec=True,side_effect=read),patch.object(policy.time,'sleep'):
+            with self.assertRaisesRegex(ValueError,'does not follow CPUFreq'):
+                policy.verify_hardware_rate(root/'policy0')
+
     def test_temperature_hysteresis_and_missing_sensor(self):
         self.assertTrue(policy.thermal_latch(False,[80000]))
         self.assertTrue(policy.thermal_latch(True,[75000]))

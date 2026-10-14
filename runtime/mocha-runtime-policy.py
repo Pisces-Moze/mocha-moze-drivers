@@ -53,15 +53,31 @@ def rate_matches(requested, measured):
 
 def verify_hardware_rate(node):
     monitor=SYS/'kernel/debug/tegra_dfll_fcpu/rate'
-    for _ in range(5):
+    matched = 0
+    previous = None
+    mismatch = None
+    for _ in range(20):
         before=int(node.joinpath('scaling_cur_freq').read_text())*1000
         time.sleep(.02)
         measured=int(monitor.read_text())
         after=int(node.joinpath('scaling_cur_freq').read_text())*1000
-        if before==after:
-            if not rate_matches(after,measured):
-                raise ValueError(f'DFLL monitor {measured} Hz does not follow CPUFreq {after} Hz; refuse runtime policy')
-            return
+        if before==after and rate_matches(after,measured):
+            matched = matched + 1 if previous == after else 1
+            previous = after
+            if matched >= 2:
+                return
+        else:
+            matched = 0
+            previous = None
+            if before == after:
+                mismatch = (after, measured)
+        # Switching governors can leave transitional monitor samples. Keep
+        # the same error threshold and require two consecutive matches at
+        # one request, within a bounded window; one lucky sample is not proof.
+        time.sleep(.05)
+    if mismatch is not None:
+        requested, measured = mismatch
+        raise ValueError(f'DFLL monitor {measured} Hz does not follow CPUFreq {requested} Hz; refuse runtime policy')
     raise ValueError('No stable CPU/DFLL sample; refuse runtime policy')
 
 
