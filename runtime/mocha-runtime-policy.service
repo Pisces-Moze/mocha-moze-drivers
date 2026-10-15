@@ -1,6 +1,9 @@
 [Unit]
 Description=Mocha native-runtime CPU and RAM swap policy
 After=systemd-modules-load.service
+RequiresMountsFor=/srv/mocha-data
+After=local-fs.target
+Before=getty@tty1.service user@1000.service
 ConditionKernelVersion=*-native-runtime
 
 [Service]
