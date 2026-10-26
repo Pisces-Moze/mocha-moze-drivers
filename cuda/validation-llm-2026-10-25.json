@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-25",
+  "status": "installed-and-gpu-inference-validated",
+  "model": "karpathy/tinyllamas stories260K",
+  "steps": 96,
+  "config": [
+    64,
+    172,
+    5,
+    8,
+    4,
+    512,
+    512
+  ],
+  "files": {
+    "mocha-cuda-llm-engine": {
+      "bytes": 74944,
+      "sha256": "7cab93706b708dacac8dd237c57af1ed0a76b1a78281ee959f074df1eeba68c1"
+    },
+    "model.bin": {
+      "bytes": 1056540,
+      "sha256": "b0a507e7ad0f626624f17112325e66691f9076d622e1d3274d103d00299f2696"
+    },
+    "tokenizer.bin": {
+      "bytes": 6227,
+      "sha256": "037cb335abb25d1fa9e8ecae30ed2a3a8ace9302862ebcdc05d51a6bbb10c312"
+    },
+    "LICENSE": {
+      "bytes": 1063,
+      "sha256": "e87b912002f04cdfa837eaf7f70548ab79b9cb62a285495edf575f3da875aec4"
+    },
+    "mocha-cuda-llm": {
+      "bytes": 340,
+      "sha256": "e3f73337ab2be713a38d304417233d3f51579c7517b9c9cb07e34dd8967fe854"
+    }
+  },
+  "runtime_library_sha256": "c3696947fe0555d8f4ac42e64047bf54b901bed85b1de92a8840568b18f208c3",
+  "backend": "fused sm_32 CUDA Transformer forward; CPU tokenizer and sampling",
+  "cpu": {
+    "returncode": 0,
+    "stdout": "Once upon a time, there was a little girl named Lily. She loved to play outside in the park. One day, she saw a big, red ball. She wanted to play with it, but it was too high.\nLily's mom said, \"Lily, let's go to the park.\" Lily was sad and didn't\n",
+    "wall_seconds": 0.3229186690005008,
+    "child_cpu_seconds": 0.18279099999999998,
+    "children_peak_rss_kib": 13040,
+    "metrics": {
+      "LLM_PROCESS_RSS_KIB": "5052",
+      "PEAK_RSS_KIB": "5052",
+      "LLM_CUDA_KERNEL_CALLS": "0",
+      "CHECKED_LOGITS": "0",
+      "ERRORS": "0",
+      "MAX_ABS_ERROR": "0"
+    },
+    "tokens_per_second": 683.453237
+  },
+  "cuda_with_cpu_reference": {
+    "returncode": 0,
+    "stdout": "Once upon a time, there was a little girl named Lily. She loved to play outside in the park. One day, she saw a big, red ball. She wanted to play with it, but it was too high.\nLily's mom said, \"Lily, let's go to the park.\" Lily was sad and didn't\n",
+    "wall_seconds": 13.045836997000151,
+    "child_cpu_seconds": 9.37922,
+    "children_peak_rss_kib": 13040,
+    "metrics": {
+      "CC": "3.2",
+      "GPU_WEIGHT_BYTES": "1056540",
+      "GPU_CACHE_BYTES": "655360",
+      "CHECK": "1",
+      "MOCHA_CODE_BYTES": "159488",
+      "ADDRESS": "13",
+      "LLM_PROCESS_RSS_KIB": "5552",
+      "PEAK_RSS_KIB": "5552",
+      "LLM_CUDA_KERNEL_CALLS": "96",
+      "CHECKED_LOGITS": "49152",
+      "ERRORS": "0",
+      "MAX_ABS_ERROR": "5.10215759e-05"
+    },
+    "tokens_per_second": 12.419924
+  },
+  "normal_cuda_command": {
+    "returncode": 0,
+    "stdout": "Once upon a time, there was a little girl named Lily. She loved to play outside in the park. One\n",
+    "wall_seconds": 7.366532654999901,
+    "command": "/usr/local/bin/mocha-cuda-llm",
+    "text_matches_cpu_prefix": true,
+    "metrics": {
+      "CC": "3.2",
+      "GPU_WEIGHT_BYTES": "1056540",
+      "GPU_CACHE_BYTES": "655360",
+      "CHECK": "0",
+      "MOCHA_CODE_BYTES": "159488",
+      "ADDRESS": "13",
+      "LLM_PROCESS_RSS_KIB": "5308",
+      "PEAK_RSS_KIB": "5308",
+      "LLM_CUDA_KERNEL_CALLS": "32",
+      "CHECKED_LOGITS": "0",
+      "ERRORS": "0",
+      "MAX_ABS_ERROR": "0"
+    },
+    "tokens_per_second": 12.694513
+  },
+  "text_equal": true,
+  "desktop_processes_present": true,
+  "scope": "Fixed TinyStories 260K layout, English generation test; not a general chat model or CUDA conformance claim"
+}

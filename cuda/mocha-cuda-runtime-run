@@ -1,0 +1,15 @@
+#!/bin/sh
+# Private libraries only; do not change the desktop's graphics library search.
+set -eu
+prefix=${MOCHA_CUDA_RUNTIME_PREFIX:-/srv/mocha-data/codex-debian-desktop/cuda-runtime-current}
+if [ "$#" -eq 0 ]; then
+    echo "usage: mocha-cuda-runtime-run PROGRAM [ARGUMENTS...]" >&2
+    exit 2
+fi
+if [ ! -f "$prefix/lib/libucuda.so.1.0.0" ]; then
+    echo "Mocha CUDA Runtime prefix is unavailable: $prefix" >&2
+    exit 1
+fi
+LD_LIBRARY_PATH="$prefix/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH
+exec "$@"

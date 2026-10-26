@@ -1,0 +1,229 @@
+{
+  "date": "2026-10-22",
+  "kernel": "6.12.111-moze.1-native-vde2",
+  "status": "protected stereo speakers physically confirmed and persistently installed",
+  "physical_speaker_confirmation": true,
+  "nonvolatile_amplifier_writes": false,
+  "default_boot_changed": false,
+  "primary_schematic": {
+    "url": "https://gitlab.com/-/project/8065375/uploads/dc2f77d02b9c4eb186c554c147ee02f1/schematic.pdf",
+    "sha256": "c913a273494125909a3b96b3f0fe9d2824a81c2db050cb375e05506e6a378d57",
+    "sheet": 22,
+    "limitation": "P2B reference; actual PX5-high address is 0x1c rather than annotated 0x1d"
+  },
+  "codec": {
+    "missing_control": "PX5 GPIO189 high",
+    "id": "0x6271",
+    "address": "0x1c",
+    "power_or_clock_probes_required_for_id": false,
+    "driver_bound": "rt5670",
+    "i2s_bound": "tegra30-i2s 70301000.i2s"
+  },
+  "card": {
+    "name": "Mocha Speakers",
+    "pcm": "hw:0,0",
+    "format": "48000 Hz, stereo, S16_LE",
+    "mclk_hz": 12000000,
+    "codec_is_clock_provider": true,
+    "routing": "I2S0 -> RT5671 AIF1 -> DAC1 -> RxDP -> DSP DL Bypass -> TxDC_DAC -> AIF2 -> TFA9890",
+    "left_amp": "0x37",
+    "right_amp": "0x34",
+    "codec_total_playback_switch": "DAC1 Playback Switch on,on"
+  },
+  "factory_calibration": {
+    "read_after_clock_and_analog_start": true,
+    "both_mtp_otc_and_mtpex_set": true,
+    "both_resistance_shadow_nonzero": true,
+    "unpowered_zero_reads_are_not_missing_calibration": true
+  },
+  "failures": {
+    "before_px5": "codec NACK despite MCLK, 32k, GPIO6 and independent GPIO I2C tests",
+    "first_wrong_route": "TxDP_ADC bypass did not connect PCM to speaker endpoints",
+    "first_clock_wait": "resolved by deferred startup after DAPM and bounded clock/MTP shadow waits",
+    "unload": "resolved by no-jack guard; unload/rebind tested without new NULL dereference",
+    "silent_with_valid_dsp": "resolved by DAC1 total playback switch and clearing DAP1 DOUT tristate"
+  },
+  "builds": {
+    "audio-board-20261022": {
+      "sha256": "a7f8acc0b9317fa631015871ef5710fd4f102aefe9c8529f5b7b1efa21c2c3a4",
+      "size": 175988,
+      "vermagic": "6.12.111-moze.1-native-vde2 SMP preempt mod_unload ARMv7 p2v8",
+      "source_sha256": "c9fa449769627d2e743e4cde101584a044ec3e096620b319eb3f773ce8d0098a"
+    },
+    "audio-i2s-20261022": {
+      "sha256": "71fdbd3c4a6e1f3df574456482aa125bde405818a6c8e3386007f80b8c8fb661",
+      "size": 144932,
+      "vermagic": "6.12.111-moze.1-native-vde2 SMP preempt mod_unload ARMv7 p2v8",
+      "source_sha256": "39461256353d0d0153ba1435ef903274b10d3df4335041ab97fbe185505590dc"
+    },
+    "audio-speakers-r2-20261022": {
+      "mocha_miui_tfa98xx.ko": {
+        "sha256": "d1082eaa3b4d41636884609a38f666074813b3040d800ec7bd83c0466a72f4e4",
+        "size": 292868,
+        "vermagic": "6.12.111-moze.1-native-vde2 SMP preempt mod_unload ARMv7 p2v8"
+      },
+      "mocha_audio_runtime_card.ko": {
+        "sha256": "e58b2f28543619485a7bc49aac41a36fc4858ac2a997ce6ca3ea19f626f3317f",
+        "size": 227056,
+        "vermagic": "6.12.111-moze.1-native-vde2 SMP preempt mod_unload ARMv7 p2v8"
+      }
+    },
+    "rt5670-nojack-20261022": {
+      "sha256": "ae819bb5d7cca2a6e2b2c39ea3bd9cf101f7143800e9ea240daf9676167f9d4d",
+      "size": 389520,
+      "sources": {
+        "rt5670.c": "8f4d14684b20fa478a2bc923e92362b94690c82411e4a8ed22efe3b3a27dc944",
+        "rt5670-dsp.h": "fc630ace31641784b7c6afd17493eea5c327fd002d4a8550c816a7faf0919d23",
+        "rl6231.h": "c57abf5ffe4a6f6c80d745d5fa23393aa3eb8fd71c14cfa2f332098750f959dd",
+        "snd-soc-rt5670.mod.c": "2f28c4effd5415d3f67823ee8c0bf7ee9cba423f948fa908603bac1a75af2fee",
+        "rt5670.h": "b6c24e43c74a75440337550046a9522e1cf98c12e96d98769d0c780d8192bd7f"
+      }
+    }
+  },
+  "pending": [
+    "post-install cold boot autoload check",
+    "headphone and microphone adaptation",
+    "device-tree integration replacing explicit board registration",
+    "additional sample formats and longer audio workload coverage"
+  ],
+  "data_pin": {
+    "group": "dap1_dout_pn2",
+    "tristate_before": 1,
+    "tristate_after": 0,
+    "existing_i2s_function_retained": true
+  },
+  "protected_playback": {
+    "firmware_download_readback_passed": true,
+    "both_channels_audible_user_confirmed": true,
+    "hardware_gain_db": -18,
+    "software_volume": 0.65,
+    "repeated_playback_after_idle_passed": true
+  },
+  "installed_assets": {
+    "kernel": "6.12.111-moze.1-native-vde2",
+    "modules": [
+      {
+        "name": "snd_soc_rt5670",
+        "file": "snd-soc-rt5670-nojack-20261022.ko",
+        "sha256": "ae819bb5d7cca2a6e2b2c39ea3bd9cf101f7143800e9ea240daf9676167f9d4d",
+        "parameters": []
+      },
+      {
+        "name": "mocha_rt5671_board",
+        "file": "mocha_rt5671_board-20261022.ko",
+        "sha256": "a7f8acc0b9317fa631015871ef5710fd4f102aefe9c8529f5b7b1efa21c2c3a4",
+        "parameters": [
+          "register_codec=1"
+        ]
+      },
+      {
+        "name": "mocha_audio_i2s_probe",
+        "file": "mocha_audio_i2s_probe-20261022.ko",
+        "sha256": "71fdbd3c4a6e1f3df574456482aa125bde405818a6c8e3386007f80b8c8fb661",
+        "parameters": []
+      },
+      {
+        "name": "mocha_audio_data_pin",
+        "file": "mocha_audio_data_pin-20261022.ko",
+        "sha256": "90ecbe5fea9e51271ef042638153c78390b3b5810b2098f859238b8467ee8c83",
+        "parameters": []
+      },
+      {
+        "name": "mocha_miui_tfa98xx",
+        "file": "mocha_miui_tfa98xx-r4-20261022.ko",
+        "sha256": "3db8cee49609def0587184fcf5c1aff47e69e468652239cbc437af1bdfcb3cca",
+        "parameters": []
+      },
+      {
+        "name": "mocha_audio_runtime_card",
+        "file": "mocha_audio_runtime_card-20261022.ko",
+        "sha256": "73318cb853de5c823abd9502453491d6f98510a53082d0af878318c5567b9f6b",
+        "parameters": []
+      }
+    ],
+    "firmware": [
+      {
+        "file": "tfa9890.config",
+        "sha256": "a55b77748ad0f016982636b0ae5e1adbb3aa594bcff77018818556e48a79d892"
+      },
+      {
+        "file": "tfa9890_boot.patch",
+        "sha256": "bde1625ccb294878bd25d0eb7d934059505bd788a540f8f0795d8cacb2546058"
+      },
+      {
+        "file": "tfa9890_left.speaker",
+        "sha256": "8ea472b57c005819e93b53a0ec9cfeb20d12255afdbe99ae3b451abc4c3598f9"
+      },
+      {
+        "file": "tfa9890_left_music.eq",
+        "sha256": "2c817a63428d9502be88b79e253411157ac5dc4eaf42c8c4fe759d3200aa9511"
+      },
+      {
+        "file": "tfa9890_left_music.preset",
+        "sha256": "f2a0394439c577bd4b360e8e74e623072f0420d3e523be9d2fa9306b87d46ceb"
+      },
+      {
+        "file": "tfa9890_right.speaker",
+        "sha256": "9b2699363a9b1ca9a8ec5dcd2b24dd6cabcb19b07e3407b839facdc6923adc55"
+      },
+      {
+        "file": "tfa9890_right_music.eq",
+        "sha256": "2c817a63428d9502be88b79e253411157ac5dc4eaf42c8c4fe759d3200aa9511"
+      },
+      {
+        "file": "tfa9890_right_music.preset",
+        "sha256": "52fcaea43bc6d18d6cf8c6f98bef119ab3024464928de22f16c3966efe35530d"
+      },
+      {
+        "file": "tfa9890_rom.patch",
+        "sha256": "a4fa4f39ffb725bffaff3e805cf6f72b548b501aa5d9deb06cf9aa38ceed9674"
+      }
+    ],
+    "physical_stereo_confirmed": true
+  },
+  "desktop": {
+    "device": "Mocha 内置扬声器",
+    "normal_pipewire_playback_passed": true,
+    "pcm_format": "48000 Hz stereo S16_LE",
+    "idle_pcm_closed": true,
+    "idle_both_amplifiers_powered_down": true,
+    "service_enabled": true,
+    "service_restart_passed": true,
+    "post_install_cold_boot_tested": false
+  },
+  "complete_source_build": {
+    "date": "2026-10-22",
+    "modules": 6,
+    "W": 1,
+    "passed": true,
+    "directory": "audio-bringup-final-20261022",
+    "deployed": false,
+    "note": "same current sources, different build path and hashes; working individually built modules remain installed",
+    "artifacts": {
+      "mocha_miui_tfa98xx.ko": {
+        "sha256": "797227a3dcac035ed9742b071e8293a66b3df56d489ba05f5d2d6634130e09f4",
+        "size": 292928
+      },
+      "mocha_audio_i2s_probe.ko": {
+        "sha256": "2358fcedea904a187151b7e754a7f7f2cc3376f736d75994ad7696ef27ab52bd",
+        "size": 144972
+      },
+      "mocha_rt5671_board.ko": {
+        "sha256": "42d40a2ba89479a839db0676118d218686af5144bdf1bb77a7690d9ff9ef71c2",
+        "size": 176020
+      },
+      "mocha_audio_data_pin.ko": {
+        "sha256": "3542ac44cef1d938b7d7066031d65d2081ad1bbbf9efe14095abdff0fa91636c",
+        "size": 86664
+      },
+      "mocha_audio_runtime_card.ko": {
+        "sha256": "32e4b4a004d38ad5dba9ba5712fd14ce5bda8138577c9993f6e1abcdcc400129",
+        "size": 227008
+      },
+      "snd-soc-rt5670.ko": {
+        "sha256": "054bbc8fec496126f47982f8efa3a244d63eb6b9389726594ba42ac6c281b606",
+        "size": 389544
+      }
+    }
+  }
+}

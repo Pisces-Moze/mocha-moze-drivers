@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+prefix=${MOCHA_CUDA_RUNTIME_PREFIX:-/srv/mocha-data/codex-debian-desktop/cuda-runtime-current}
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+timeout -k 3 25 "$here/mocha-cuda-runtime-run" "$prefix/bin/probe-runtime-api" "$prefix/lib/libucuda.so.1.0.0"
+timeout -k 3 25 "$here/mocha-cuda-runtime-run" "$prefix/bin/runtime-smoke" 8193

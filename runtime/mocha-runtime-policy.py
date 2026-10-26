@@ -116,14 +116,20 @@ def stop(signum, frame):
     running=False
 
 
+def supports_kernel(release):
+    # VDE2 carries the same Palmas/DFLL alignment and RAM swap support. Do
+    # not admit other experimental VDE builds by a broad suffix match.
+    return release.endswith('-native-runtime') or release == '6.12.111-moze.1-native-vde2'
+
+
 def main():
     import pwd
     if os.geteuid()!=0:
         raise PermissionError('Run the trial service as root')
     # This candidate has matching CPU DVFS, DFLL and zram support. Installing
     # the service on the accepted native kernel must not imply those exist.
-    if not os.uname().release.endswith('-native-runtime'):
-        raise ValueError('Use the separately validated native-runtime kernel')
+    if not supports_kernel(os.uname().release):
+        raise ValueError('Use the separately validated native-runtime or exact VDE2 kernel')
     policies=list(SYS.glob('devices/system/cpu/cpufreq/policy*'))
     if not policies:raise ValueError('No CPU DVFS policy exposed')
     # This gate runs before any frequency/governor/swap change. A mismatch is

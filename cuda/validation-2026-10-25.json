@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-25",
+  "status": "installed-open-runtime-functional-subset",
+  "device": "Mocha Tegra124 / GK20A",
+  "kernel": "6.12.111-moze.1-native-vde2",
+  "runtime_version": 3020,
+  "driver_version": 4000,
+  "compute_capability": "3.2",
+  "compiler": "NVIDIA NVCC 6.5, ARMhf host object, sm_32 native cubin",
+  "library_sha256": "c3696947fe0555d8f4ac42e64047bf54b901bed85b1de92a8840568b18f208c3",
+  "build_files": {
+    "bin/probe-runtime-api": {
+      "bytes": 69708,
+      "sha256": "2a0f2e8ca0b3276926e387283c95450e5e986087f801158aa6982ae88e90d7d7"
+    },
+    "bin/runtime-smoke": {
+      "bytes": 77928,
+      "sha256": "666d4811a129b139d777c97a1fe6162226eec29590ef2b4b9cae78edbae002aa"
+    },
+    "lib/libgdev.so.1.0.0": {
+      "bytes": 82592,
+      "sha256": "4ccd5f7cb1e30c586385e5b4b748f053483fcc2f18d1a297e3234d2b240e3d9c"
+    },
+    "lib/libucuda.so.1.0.0": {
+      "bytes": 2099672,
+      "sha256": "c3696947fe0555d8f4ac42e64047bf54b901bed85b1de92a8840568b18f208c3"
+    },
+    "lib/libboost_thread.so.1.83.0": {
+      "bytes": 132600,
+      "sha256": "e6b1fa90696b352dfb78ecfa2bd4f7d5ddf0064ae887f27baa02a88935faf5b0"
+    },
+    "lib/libdrm.so.2": {
+      "bytes": 67344,
+      "sha256": "a7da1dda85e6396fbcae9d8dad913118d5303a7970fa1eec7078ac33b0325beb"
+    },
+    "lib/libdrm_nouveau.so.2": {
+      "bytes": 67068,
+      "sha256": "53fe7711817586fd80391eaa69bbada4975fbb10a63bd74b4a51eb00a2fa4f99"
+    }
+  },
+  "runtime_api": {
+    "returncode": 0,
+    "stdout": "cudaRuntimeGetVersion(&version)=0\ncudaGetDeviceCount(&count)=0\nRUNTIME_VERSION=3020 DEVICE_COUNT=1\ncudaMalloc(&zero,0)=0\ncudaFree(NULL)=0\nCUDA_RUNTIME_INVALID_ARGUMENT_AND_LAST_ERROR=PASS\ncudaMalloc(&a,sizeof(input))=0\ncudaMalloc(&b,sizeof(input))=0\ncudaMemcpy(a,input,sizeof(input),1)=0\ncudaMemcpy(b,a,sizeof(input),3)=0\ncudaThreadSynchronize()=0\ncudaMemcpy(output,b,sizeof(output),2)=0\ncudaMemset(b,0,sizeof(input))=0\ncudaMemcpy(output,b,sizeof(output),2)=0\ncudaFree(b)=0\ncudaFree(a)=0\nCUDA_RUNTIME_ALLOCATION_COPY_MEMSET=PASS\n"
+  },
+  "kernel_tests": [
+    {
+      "elements": 257,
+      "returncode": 0,
+      "stdout": "RUNTIME=3020 DEVICE=NVIDIA GK20A (Tegra K1) CC=3.2 ELEMENTS=257\nSAXPY_ERRORS=0\nSHARED_REDUCTION_ERRORS=0\nKERNEL_REGISTERS=6 STATIC_SHARED=512 MAX_THREADS=1024\nMIXED_8_16_64_BIT_STRUCT_ARGUMENTS=PASS\nDYNAMIC_SHARED_AND_ATOMICS=PASS\nSERIAL_EVENT_HOST_ELAPSED_MS=64.684\nSTREAM_EVENT_COPY_ERRORS=0\nPINNED_HOST_ALLOCATION_COPY=PASS\nPITCHED_2D_COPY_AND_PADDING=PASS\nCUDA_RUNTIME_FLOAT_SHARED_STREAM_EVENT=PASS\n"
+    },
+    {
+      "elements": 8193,
+      "returncode": 0,
+      "stdout": "RUNTIME=3020 DEVICE=NVIDIA GK20A (Tegra K1) CC=3.2 ELEMENTS=8193\nSAXPY_ERRORS=0\nSHARED_REDUCTION_ERRORS=0\nKERNEL_REGISTERS=6 STATIC_SHARED=512 MAX_THREADS=1024\nMIXED_8_16_64_BIT_STRUCT_ARGUMENTS=PASS\nDYNAMIC_SHARED_AND_ATOMICS=PASS\nSERIAL_EVENT_HOST_ELAPSED_MS=62.533\nSTREAM_EVENT_COPY_ERRORS=0\nPINNED_HOST_ALLOCATION_COPY=PASS\nPITCHED_2D_COPY_AND_PADDING=PASS\nCUDA_RUNTIME_FLOAT_SHARED_STREAM_EVENT=PASS\n"
+    }
+  ],
+  "ordinary_user_selftest": {
+    "returncode": 0,
+    "stdout": "cudaRuntimeGetVersion(&version)=0\ncudaGetDeviceCount(&count)=0\nRUNTIME_VERSION=3020 DEVICE_COUNT=1\ncudaMalloc(&zero,0)=0\ncudaFree(NULL)=0\nCUDA_RUNTIME_INVALID_ARGUMENT_AND_LAST_ERROR=PASS\ncudaMalloc(&a,sizeof(input))=0\ncudaMalloc(&b,sizeof(input))=0\ncudaMemcpy(a,input,sizeof(input),1)=0\ncudaMemcpy(b,a,sizeof(input),3)=0\ncudaThreadSynchronize()=0\ncudaMemcpy(output,b,sizeof(output),2)=0\ncudaMemset(b,0,sizeof(input))=0\ncudaMemcpy(output,b,sizeof(output),2)=0\ncudaFree(b)=0\ncudaFree(a)=0\nCUDA_RUNTIME_ALLOCATION_COPY_MEMSET=PASS\nRUNTIME=3020 DEVICE=NVIDIA GK20A (Tegra K1) CC=3.2 ELEMENTS=8193\nSAXPY_ERRORS=0\nSHARED_REDUCTION_ERRORS=0\nKERNEL_REGISTERS=6 STATIC_SHARED=512 MAX_THREADS=1024\nMIXED_8_16_64_BIT_STRUCT_ARGUMENTS=PASS\nDYNAMIC_SHARED_AND_ATOMICS=PASS\nSERIAL_EVENT_HOST_ELAPSED_MS=54.972\nSTREAM_EVENT_COPY_ERRORS=0\nPINNED_HOST_ALLOCATION_COPY=PASS\nPITCHED_2D_COPY_AND_PADDING=PASS\nCUDA_RUNTIME_FLOAT_SHARED_STREAM_EVENT=PASS\n"
+  },
+  "legacy_driver_regression": {
+    "returncode": 0,
+    "stdout": "CUDA_INIT=0\nCUDA_CONTEXT=0\nCUDA_MODULE=0\nCUDA_FUNCTION=0\nCUDA_INPUT_ALLOC=0\nCUDA_OUTPUT_ALLOC=0\nCUDA_UPLOAD=0\nCUDA_OUTPUT_CLEAR=0\nCUDA_LAUNCH=0\nCUDA_SYNC=0\nCUDA_DOWNLOAD=0\nGPU_CALCULATED_ELEMENTS=257 ERRORS=0\nCUDA_INPUT_FREE=0\nCUDA_OUTPUT_FREE=0\nCUDA_MODULE_UNLOAD=0\nCUDA_CONTEXT_DESTROY=0\nCUDA_KERNEL_TEST=PASS\n"
+  },
+  "parser_sanitizers": {
+    "instrumentation": [
+      "ASan",
+      "UBSan"
+    ],
+    "implementation": "actual patched upstream sources",
+    "elf32_sections": 12,
+    "elf32_symbols": 7,
+    "malformed_fatbinary_cases": 5,
+    "passed": true
+  },
+  "installation": {
+    "prefix": "/srv/mocha-data/codex-debian-desktop/cuda-runtime-20261025",
+    "library_sha256": "c3696947fe0555d8f4ac42e64047bf54b901bed85b1de92a8840568b18f208c3",
+    "bin_dir": "/srv/mocha-data/codex-debian-desktop/local/bin",
+    "backup": "/srv/mocha-data/codex-debian-desktop/cuda-runtime-20261025/activation-backup"
+  },
+  "desktop_processes_running": true,
+  "repository_tools": {
+    "fresh_pinned_source_build_passed": true,
+    "nvcc_script_passed": true,
+    "idempotent_reapply_changed_files": 0,
+    "fresh_build_library_sha256": "506393a9b37e0d64d3b024e6a9f34b186735960ededf80ee373caa3ddfe4973e",
+    "note": "Fresh build compiled; device execution results refer to library_sha256 above."
+  },
+  "limitations": [
+    "PTX-only/JIT not implemented",
+    "serialized execution; no compute/transfer overlap",
+    "event timings use synchronized host timestamps",
+    "managed memory not implemented",
+    "textures, surfaces, graphics interop and global symbols not validated",
+    "NVIDIA official libcudart 6.5 ABI still not compatible",
+    "not a full CUDA conformance result"
+  ]
+}

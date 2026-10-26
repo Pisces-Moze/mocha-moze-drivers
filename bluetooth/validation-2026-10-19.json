@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-19",
+  "kernelrelease": "6.12.111-moze.1-native-vde2",
+  "board": "nvidia,mocha",
+  "uart_driver": "serial-tegra",
+  "serdev_driver": "mocha_bcm_rts",
+  "fix": "release host RTS during controller power-up; restore flow control after shutdown release",
+  "hci_reset_version_features_status_zero": true,
+  "firmware_ram_download": true,
+  "chip_id": 92,
+  "chip_revision": "BCM4350C0",
+  "scan_remote_device_count": 10,
+  "s102": {
+    "paired": true,
+    "bonded": true,
+    "trusted": true,
+    "connected_at_test": true,
+    "persistent_link_key_presence_verified": true,
+    "pipewire_sink_created": true,
+    "media_transport_active": true,
+    "user_confirmed_audible": true
+  },
+  "thinkbook_mouse": {
+    "paired": true,
+    "bonded": true,
+    "trusted": true,
+    "connected": true,
+    "services_resolved": true,
+    "uhid_input_node_created": true,
+    "physical_motion_click_wheel_acceptance": "pending"
+  },
+  "k480_keyboard": {
+    "discovered": true,
+    "paired": true,
+    "bonded": true,
+    "trusted": true,
+    "connected": true,
+    "services_resolved": true,
+    "kernel_keyboard_input_node_created": true,
+    "user_report": "code entry worked; manual Connect was required before completion fix",
+    "typing_acceptance": "normal typing not separately confirmed",
+    "new_pair_completion_flow": "real production callbacks tested; fresh physical pairing not repeated"
+  },
+  "input_modules": {
+    "uhid": "2b25eacf2a17063388d5bc1a21f7e2c3896618e301f391b48c62d916ac263904",
+    "uinput": "a0254e5340b4e47d3c707269e1c051ee952335e5b69c10983aa402cd899715d4",
+    "installed_and_loaded": true,
+    "persistent_loader_enabled": true
+  },
+  "bcm_module_sha256": "082945624fb01ea2c98af98cb8df8606fe15a5155789971f6e11b5e506258851",
+  "derived_source_sha256": "06c97b5e190ec472fea11237ec3b9a47fbbf9c801cbb194ac77da9ac5d979290",
+  "public_builder_recompiled": true,
+  "persistent_service_active": true,
+  "cold_boot_of_new_bluetooth_service": "not separately tested",
+  "internal_speaker": "RT5671 NACK; no ALSA card",
+  "proprietary_firmware_published": false,
+  "addresses_and_bond_secrets_published": false,
+  "noctalia_pairing_fixes": {
+    "binary_sha256": "6d0d3af9fc27fef489932b154a88c60311cdfda3d8a847c32b7970164e3cf781",
+    "installed_with_backup": true,
+    "automatic_trust_then_connect_after_success": true,
+    "clear_information_code_when_device_paired": true,
+    "real_callback_regressions_passed": true,
+    "bluez_agent_restart_live_test": "not performed"
+  }
+}

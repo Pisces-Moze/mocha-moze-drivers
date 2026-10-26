@@ -91,6 +91,8 @@ struct tfa98xx_priv {
 	unsigned int fmt;
 	bool dsp_crash;
 	bool recalib;
+	bool firmware_ready;
+	bool playback_active;
 	u16 cache[0x90];
 };
 
@@ -169,7 +171,6 @@ static int tfa98xx_write(struct snd_soc_component *codec, unsigned int reg,
 {
 	u8 buf[3];
 	size_t sz;
-	int ret;
 
 	if (!tfa98xx_volatile_register(codec, reg) &&
 	    reg < ARRAY_SIZE(tfa98xx_reg)) {
@@ -254,11 +255,11 @@ static int tfa98xx_wait_clock(struct snd_soc_component *codec)
 	unsigned int status;
 	int tries;
 
-	for (tries = 10; tries > 0; tries--) {
+	for (tries = 100; tries > 0; tries--) {
 		status = snd_soc_component_read(codec, TFA98XX_STATUSREG);
 		if ((status & TFA98XX_STATUSREG_UP_MSK) == TFA98XX_STATUSREG_UP)
 			break;
-		mdelay(1);
+		usleep_range(1000, 1500);
 	}
 	if (tries == 0) {
 		dev_err(codec->dev, "Fail to sync i2s clock on time(%x)\n", status);
@@ -337,12 +338,22 @@ static int tfa98xx_mute(struct snd_soc_component *codec, int mute)
 
 static int tfa98xx_enable_otc(struct snd_soc_component *codec, bool recalib)
 {
-	unsigned int mtp=snd_soc_component_read(codec,TFA98XX_MTP_SPKR_CAL);
-	if(recalib || (mtp & 3) != 3) {
-		dev_err(codec->dev,"Factory speaker calibration unavailable; refusing MTP programming\n");
+	int mtp, tries;
+
+	/* MTP shadows settle after the clock-ready status; never program MTP. */
+	if (recalib)
 		return -EOPNOTSUPP;
+	for (tries = 0; tries < 50; tries++) {
+		mtp = i2c_smbus_read_word_swapped(to_i2c_client(codec->dev),
+						  TFA98XX_MTP_SPKR_CAL);
+		if (mtp < 0)
+			return mtp;
+		if ((mtp & 3) == 3)
+			return 0;
+		usleep_range(2000, 2500);
 	}
-	return 0;
+	dev_err(codec->dev, "Factory speaker calibration unavailable; refusing MTP programming\n");
+	return -EOPNOTSUPP;
 }
 
 static int tfa98xx_download_patch(struct snd_soc_component *codec,
@@ -553,6 +564,8 @@ out:
 	return ret;
 }
 
+static void tfa98xx_start_monitor(struct tfa98xx_priv *tfa98xx);
+
 static void tfa98xx_download(struct work_struct *work)
 {
 	struct tfa98xx_priv *tfa98xx;
@@ -567,11 +580,19 @@ static void tfa98xx_download(struct work_struct *work)
 
 	mutex_lock(&tfa98xx->fw_lock);
 
-	/* wait the clock stable */
-	if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_OFF)
-		goto unlock; /* impossible to get the clock */
+	/* DAPM must finish before the codec forwards I2S clocks to the amps. */
+	if (!READ_ONCE(tfa98xx->playback_active)) {
+		mutex_unlock(&tfa98xx->fw_lock);
+		return;
+	}
 
-	ret = tfa98xx_wait_clock(codec);
+	/* wait the clock stable */
+	if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_OFF) {
+		ret = -EAGAIN;
+		goto unlock; /* impossible to get the clock */
+	}
+
+	ret = tfa98xx_power(codec, true);
 	if (ret < 0)
 		goto unlock;
 
@@ -585,8 +606,10 @@ static void tfa98xx_download(struct work_struct *work)
 		goto unlock;
 
 	for (id = 0; id < TFA98XX_FW_NUMBER; id++) {
-		if (tfa98xx->fw[id] == NULL)
+		if (tfa98xx->fw[id] == NULL) {
+			ret = -ENOENT;
 			goto unmute;
+		}
 		if (!tfa98xx->fw_chg[id])
 			continue;
 
@@ -666,8 +689,10 @@ static void tfa98xx_download(struct work_struct *work)
 	else
 		dev_info(codec->dev, "Load the calibration value from mtp\n");
 
-	snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
+	ret = snd_soc_component_update_bits(codec, TFA98XX_SYS_CTRL,
 		TFA98XX_SYS_CTRL_SBSL_MSK, TFA98XX_SYS_CTRL_SBSL);
+	if (ret < 0)
+		goto unlock;
 
 	for (tries = 10; tries > 0; tries--) {
 		mtp = snd_soc_component_read(codec, TFA98XX_MTP_SPKR_CAL);
@@ -676,21 +701,30 @@ static void tfa98xx_download(struct work_struct *work)
 		msleep(100);
 	}
 
-	if (tries == 0)
-		dev_warn(codec->dev, "Fail to calibrate on time\n");
-	else
-		dev_info(codec->dev, "Finish one time calibration\n");
+	if (tries == 0) {
+		ret = -ETIMEDOUT;
+		goto unlock;
+	}
 
 unmute:
-	tfa98xx_mute(codec, TFA98XX_MUTE_OFF);
-unlock:
-	mutex_unlock(&tfa98xx->fw_lock);
-
-	/* retry in a late time if fail */
-	if (ret < 0) {
-		queue_delayed_work(tfa98xx->workqueue,
-			&tfa98xx->download_work, msecs_to_jiffies(10));
+	if (ret >= 0 && !READ_ONCE(tfa98xx->playback_active))
+		ret = -ECANCELED;
+	if (ret >= 0) {
+		ret = tfa98xx_mute(codec, TFA98XX_MUTE_OFF);
+		tfa98xx->firmware_ready = ret >= 0;
+		if (ret >= 0) {
+			dev_info(codec->dev, "Factory calibration and DSP protection ready, output unmuted\n");
+			tfa98xx_start_monitor(tfa98xx);
+		}
 	}
+unlock:
+	if (ret < 0) {
+		tfa98xx->firmware_ready = false;
+		tfa98xx_mute(codec, TFA98XX_MUTE_AMPLIFIER);
+		tfa98xx_power(codec, false);
+		dev_err(codec->dev, "Speaker kept off: DSP protection setup failed (%d)\n", ret);
+	}
+	mutex_unlock(&tfa98xx->fw_lock);
 }
 
 static bool tfa98xx_start_download(struct tfa98xx_priv *tfa98xx, bool force)
@@ -700,6 +734,7 @@ static bool tfa98xx_start_download(struct tfa98xx_priv *tfa98xx, bool force)
 
 	mutex_lock(&tfa98xx->fw_lock);
 	if (force) { /* re-download all firmware */
+		tfa98xx->firmware_ready = false;
 		for (id = 0; id < TFA98XX_FW_NUMBER; id++)
 			tfa98xx->fw_chg[id] = true;
 	} else { /* check the pending change exist */
@@ -712,8 +747,9 @@ static bool tfa98xx_start_download(struct tfa98xx_priv *tfa98xx, bool force)
 	}
 	mutex_unlock(&tfa98xx->fw_lock);
 
-	if (sched)
-		queue_delayed_work(tfa98xx->workqueue, &tfa98xx->download_work, 0);
+	if (sched && READ_ONCE(tfa98xx->playback_active))
+		queue_delayed_work(tfa98xx->workqueue, &tfa98xx->download_work,
+				   msecs_to_jiffies(20));
 	return sched;
 }
 
@@ -724,8 +760,9 @@ static void tfa98xx_stop_download(struct tfa98xx_priv *tfa98xx)
 
 static void tfa98xx_start_monitor(struct tfa98xx_priv *tfa98xx)
 {
-	queue_delayed_work(tfa98xx->workqueue,
-		&tfa98xx->monitor_work, msecs_to_jiffies(5000));
+	if (READ_ONCE(tfa98xx->playback_active))
+		queue_delayed_work(tfa98xx->workqueue,
+			&tfa98xx->monitor_work, msecs_to_jiffies(5000));
 }
 
 static void tfa98xx_stop_monitor(struct tfa98xx_priv *tfa98xx)
@@ -759,6 +796,10 @@ static void tfa98xx_monitor(struct work_struct *work)
 	dwork = to_delayed_work(work);
 	tfa98xx = container_of(dwork, struct tfa98xx_priv, monitor_work);
 	codec = tfa98xx->codec;
+
+	if (!READ_ONCE(tfa98xx->playback_active) ||
+	    !READ_ONCE(tfa98xx->firmware_ready))
+		return;
 
 	switch (tfa98xx_check_error(codec)) {
 	case 2:
@@ -867,8 +908,9 @@ static void tfa98xx_remove(struct snd_soc_component *codec)
 	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
 	int id;
 
-	tfa98xx_stop_monitor(tfa98xx);
+	WRITE_ONCE(tfa98xx->playback_active, false);
 	tfa98xx_stop_download(tfa98xx);
+	tfa98xx_stop_monitor(tfa98xx);
 	destroy_workqueue(tfa98xx->workqueue);
 
 	for (id = 0; id < TFA98XX_FW_NUMBER; id++)
@@ -1024,6 +1066,9 @@ static int tfa98xx_firmware_put(struct snd_kcontrol *kcontrol,
 	const char *name = ucontrol->value.bytes.data;
 	const struct firmware *fw;
 	int ret;
+	if (strnlen(name, sizeof(tfa98xx->fw_name[id])) ==
+	    sizeof(tfa98xx->fw_name[id]))
+		return -EINVAL;
 
 	ret = request_firmware(&fw, name, codec->dev);
 	if (ret < 0) {
@@ -1037,6 +1082,7 @@ static int tfa98xx_firmware_put(struct snd_kcontrol *kcontrol,
 	    tfa98xx->fw[id]->size != fw->size || /* or change */
 	    memcmp(tfa98xx->fw[id]->data, fw->data, fw->size)) {
 		tfa98xx->fw_chg[id] = true;
+		tfa98xx->firmware_ready = false;
 		swap(tfa98xx->fw[id], fw);
 	}
 	mutex_unlock(&tfa98xx->fw_lock);
@@ -1202,10 +1248,11 @@ static const struct snd_soc_dapm_route tfa98xx_routes[] = {
 static const u16 tfa98xx_reg[0x90] = {
 	[TFA98XX_I2SREG] =             0x888B,
 	[TFA98XX_BAT_PROT] =           0x9392,
-	[TFA98XX_AUDIO_CTR] =          0x000F,
+	/* Remain muted and keep the power stage off until protected DSP setup. */
+	[TFA98XX_AUDIO_CTR] =          0x002F,
 	[TFA98XX_DCDCBOOST] =          0x8FFF,
 	[TFA98XX_SPKR_CALIBRATION] =   0x3800,
-	[TFA98XX_SYS_CTRL] =           0x824D,
+	[TFA98XX_SYS_CTRL] =           0x8245,
 	[TFA98XX_I2S_SEL_REG] =        0x3EC3,
 
 
@@ -1227,20 +1274,6 @@ static int tfa98xx_volatile_register(struct snd_soc_component *codec, unsigned i
 	case TFA98XX_I2S_SEL_REG:
 	case TFA98XX_INTERRUPT_REG:
 	case TFA98XX_CURRENTSENSE4:
-		return 0;
-	default:
-		return 1;
-	}
-}
-
-static int tfa98xx_writable_register(struct snd_soc_component *codec, unsigned int reg)
-{
-	switch (reg) {
-	case TFA98XX_STATUSREG:
-	case TFA98XX_BATTERYVOLTAGE:
-	case TFA98XX_TEMPERATURE:
-	case TFA98XX_REVISIONNUMBER:
-	case TFA9890_MTPF:
 		return 0;
 	default:
 		return 1;
@@ -1310,20 +1343,19 @@ static int tfa98xx_digital_mute(struct snd_soc_dai *codec_dai, int mute, int dir
 	struct snd_soc_component *codec = codec_dai->component;
 	struct tfa98xx_priv *tfa98xx = snd_soc_component_get_drvdata(codec);
 
+	WRITE_ONCE(tfa98xx->playback_active, !mute);
 	if (mute) {
-		tfa98xx_stop_monitor(tfa98xx);
 		tfa98xx_stop_download(tfa98xx);
+		tfa98xx_stop_monitor(tfa98xx);
 		tfa98xx_mute(codec, TFA98XX_MUTE_AMPLIFIER);
 		tfa98xx_power(codec, false);
-		usleep_range(5000, 5000);
 	} else {
-		usleep_range(5000, 5000);
-		tfa98xx_power(codec, true);
-		if (tfa98xx_start_download(tfa98xx, false))
-			; /* will turn off the mute after download */
-		else
-			tfa98xx_mute(codec, TFA98XX_MUTE_OFF);
-		tfa98xx_start_monitor(tfa98xx);
+		/* Waiting here prevents DAPM from enabling the downstream I2S clock.
+		 * Leave the output off until the deferred worker verifies protection.
+		 */
+		tfa98xx_start_download(tfa98xx, !tfa98xx->firmware_ready);
+		queue_delayed_work(tfa98xx->workqueue, &tfa98xx->download_work,
+				   msecs_to_jiffies(20));
 	}
 
 	return 0;

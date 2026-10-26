@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-18",
+  "kernelrelease": "6.12.111-moze.1-native-vde2",
+  "bluetooth_usable": false,
+  "reset_command_complete_status": 0,
+  "read_local_version": "timeout",
+  "repeat_reset_sequence": {
+    "opcodes": ["0x0c03", "0x0c03", "0x1001", "0x0c03"],
+    "command_complete_received": [true, true, false, true],
+    "uart_tx_bytes": 16,
+    "uart_rx_bytes": 21,
+    "all_reset_statuses": 0
+  },
+  "download_minidriver_immediately_after_reset": "no response",
+  "download_minidriver_after_200ms_reset_delay": "no response",
+  "host_only_baud_change_after_reset": {
+    "921600": "no version response",
+    "3000000": "no version response",
+    "controller_baud_verified": false
+  },
+  "pio_transport_fixed_failure": false,
+  "runtime_power_hold_fixed_failure": false,
+  "original_uart_driver_restored": true,
+  "temporary_uart_modules_absent_on_final_read": true,
+  "firmware_uploaded": false,
+  "scan_pair_audio_validated": false
+}

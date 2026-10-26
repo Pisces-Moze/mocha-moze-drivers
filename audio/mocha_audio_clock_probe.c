@@ -21,8 +21,11 @@ static void restore(void)
  if(enabled)clk_disable_unprepare(pin);
  if(!IS_ERR_OR_NULL(pin)&&old_pin)clk_set_parent(pin,old_pin);
  if(!IS_ERR_OR_NULL(ext)&&old_ext)clk_set_parent(ext,old_ext);
- if(!IS_ERR_OR_NULL(out)&&old_out)clk_set_rate(out,old_out);
  if(!IS_ERR_OR_NULL(a)&&old_a)clk_set_rate(a,old_a);
+ /* Restore the parent rate first: otherwise OUT0 rounds its divider
+  * against the temporary 368.64 MHz parent and drifts after PLL restore.
+  */
+ if(!IS_ERR_OR_NULL(out)&&old_out)clk_set_rate(out,old_out);
  if(!IS_ERR_OR_NULL(pin))clk_put(pin);
  if(!IS_ERR_OR_NULL(ext))clk_put(ext);
  if(!IS_ERR_OR_NULL(out))clk_put(out);
@@ -31,6 +34,7 @@ static void restore(void)
 static int __init start(void)
 {
  int ret;
+ if(!of_machine_is_compatible("nvidia,mocha"))return -ENODEV;
  a=get("/clock@60006000",TEGRA124_CLK_PLL_A);
  out=get("/clock@60006000",TEGRA124_CLK_PLL_A_OUT0);
  ext=get("/clock@60006000",TEGRA124_CLK_EXTERN1);

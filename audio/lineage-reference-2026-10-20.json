@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-20",
+  "source_branches": {
+    "kernel": {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "branch": "cm-14.1",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1"
+    },
+    "device": {
+      "repository": "Goayandi/android_device_xiaomi_mocha",
+      "branch": "cm-14.1",
+      "commit": "f92febf232eee92422d049767ae6f03e3a5ff944"
+    },
+    "stagefright": {
+      "repository": "LineageOS-mocha/android_hardware_nvidia_libstagefrighthw",
+      "branch": "cm-14.1",
+      "commit": "a49861d3a205ba93336b7bdcfc94dc5a5a2b81b9"
+    }
+  },
+  "files": [
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/boot/dts/tegra124-mocha.dts",
+      "sha256": "1ab441b44598bf524d36ad866ef963506c3dcdd766ba3e9f7a408d8d95660cfb",
+      "matches_previous_micode_reference": true
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-tn8-fixed-e1736-1000-a00.dtsi",
+      "sha256": "b1a5f2f486bf74d7dc1d2ed3f91c762e1c0650b1df42368f365d7c9e7e7cc4da",
+      "matches_previous_micode_reference": true
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-tn8-pinmux-e1780-1100-a02.dtsi",
+      "sha256": "256454d8de9b2f9ae5e4b6758050a79ff2a4e23d0748a059099e17d6cb57fc71",
+      "matches_previous_micode_reference": null
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-tn8-pmic-e1736-1000-a00.dtsi",
+      "sha256": "b6e1783f913092156cc8b0dabc17e9d8dbfa9c0c83a725aeb71a6af48e2626ac",
+      "matches_previous_micode_reference": true
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/boot/dts/tegra124-tn8.dtsi",
+      "sha256": "19e64838cebc616d7092e63b427d0bae4eeed19845aef6863ee66be2bd1c2d7f",
+      "matches_previous_micode_reference": null
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/configs/lineageos_mocha_defconfig",
+      "sha256": "efb63cd127a206796abdceeb140a2b422f103b1a387f173f953af378827c73e5",
+      "matches_previous_micode_reference": null
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/mach-tegra/board-ardbeg-power.c",
+      "sha256": "501f903cfe63c18c9ec25c1efe9b0cfbffea7c77cbc868011e398714b1e63216",
+      "matches_previous_micode_reference": true
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/mach-tegra/board-ardbeg.c",
+      "sha256": "0c858b8393889c9bb4023e0f71de352ef5b5177c54a687a965fe4bbc567e485c",
+      "matches_previous_micode_reference": false
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "arch/arm/mach-tegra/board-ardbeg.h",
+      "sha256": "28b5aa1717368a1b15d4a76a59ff2662dc8e5fe3134791d2c3086bc69f177fc3",
+      "matches_previous_micode_reference": true
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "sound/soc/codecs/rt5671.c",
+      "sha256": "dd8b29f80d1b17776cd9011eb6a3467509ce7a5fd14549a494c3cf2478fb3263",
+      "matches_previous_micode_reference": true
+    },
+    {
+      "repository": "Goayandi/android_kernel_xiaomi_mocha",
+      "commit": "0ccc7ac8b9956df4a0a676dfdc767347cc4d85b1",
+      "path": "sound/soc/tegra/tegra_rt5639.c",
+      "sha256": "7f84595c3e02b04f2d7b9cc08e7ff1f65e2b5bece4feecafca5dbe42ca0a2b3b",
+      "matches_previous_micode_reference": null
+    }
+  ],
+  "findings": [
+    "board-ardbeg.c explicitly registers RT5671 at I2C bus 0 address 0x1c and TFA amplifiers at 0x34/0x37.",
+    "The same board file registers the RT5671 machine with codec-master I2S, 48 kHz, 16-bit stereo.",
+    "Palmas PMIC, fixed regulator and board power sources are byte-identical to the previously inspected MiCode reference. They do not identify a new untested power rail.",
+    "dbvdd and avdd map to the existing always-on 1.8 V rail; ldoen is an active-high Palmas GPIO6 fixed 1.2 V supply.",
+    "The referenced recursive kernel tree contains rt5671.c but no sound/soc/tegra/tegra_rt5671.c; presence of a config option does not establish a complete buildable machine driver.",
+    "The device nvaudio configuration refers to tegrart5639, so its card name is not a verified Mocha mainline routing specification.",
+    "The Stagefright OMX plugin dynamically loads proprietary libnvomx.so; it is a loader, not an open implementation of the VDE bitstream engine."
+  ],
+  "current_device_read_only_observations": {
+    "alsa_cards": 0,
+    "audio_probe_modules_loaded": 0,
+    "ldoen_consumer_count": 0,
+    "shared_1v8_rail_millivolts": 1800,
+    "pll_a_hz": 282240000,
+    "pll_a_out0_hz": 11289600,
+    "audio_clocks_enabled": false
+  },
+  "limits": [
+    "No new codec I2C transaction or amplifier write was performed for this reference audit.",
+    "The earlier codec NACK remains unresolved; this is not speaker enablement.",
+    "No proprietary blobs or factory calibration are included.",
+    "The supplied CSDN article was read in the browser after the text-fetch failure. It describes a ROM and generic Android flashing/diagnostic steps; it does not supply codec power sequencing, VDE implementation or CUDA interfaces. Its flashing commands are not an installation procedure for this Debian layout."
+  ],
+  "user_article": {
+    "url": "https://blog.csdn.net/weixin_28716181/article/details/167596339",
+    "title": "LineageOS 16 非官方包刷机指南：mocha 设备代号验证与避坑",
+    "rom_filename_as_reported": "lineage-16.0-20200419-UNOFFICIAL-mocha.zip",
+    "content_read": "browser accessible article body",
+    "rom_downloaded_or_flashed": false
+  }
+}

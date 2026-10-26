@@ -1,0 +1,17 @@
+[Unit]
+Description=Initialize the Mocha protected internal stereo speakers
+RequiresMountsFor=/srv/mocha-data
+After=local-fs.target systemd-udev-trigger.service mocha-desktop-hardware.service
+Before=getty@tty1.service display-manager.service
+ConditionKernelVersion=6.12.111-moze.1-native-vde2
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/mocha-speaker-hardware
+ExecStop=/usr/local/libexec/mocha-speaker-hardware stop
+RemainAfterExit=yes
+TimeoutStartSec=45
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

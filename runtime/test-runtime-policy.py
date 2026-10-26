@@ -14,6 +14,14 @@ policy=importlib.util.module_from_spec(spec);spec.loader.exec_module(policy)
 
 
 class RuntimePolicy(unittest.TestCase):
+    def test_vde_guard_accepts_only_the_qualified_exact_release(self):
+        self.assertTrue(policy.supports_kernel('6.12.111-moze.1-native-runtime'))
+        self.assertTrue(policy.supports_kernel('6.12.111-moze.1-native-vde2'))
+        for release in ['6.12.111-moze.1-native', '6.12.111-moze.1-native-vde1',
+                        '6.12.111-moze.1-native-vde3', '6.12.112-moze.1-native-vde2']:
+            with self.subTest(release=release):
+                self.assertFalse(policy.supports_kernel(release))
+
     def test_startup_never_briefly_exceeds_user_thermal_or_screen_cap(self):
         for user_cap,screen_on,temp,expected in ((600,True,65000,510000),
                                                 (1020,False,65000,510000),

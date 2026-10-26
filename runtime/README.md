@@ -1,6 +1,6 @@
 # CPU 与内存运行时验证候选
 
-此策略仅适用于 `native-runtime` 候选内核。已验收的 `-native` 内核没有 CPU_FREQ、CPU_IDLE、ZRAM，不应把写 governor 的命令当成调频成功。候选开启上游 Tegra124 cpufreq、PMIC DFLL、LZ4 zram、PSI 和 MGLRU，保持原厂 CVB speed-bin 频率／电压表；不添加超频或降压 OPP。
+此策略适用于 `native-runtime` 及精确版本 `6.12.111-moze.1-native-vde2`，其他 VDE 实验版本仍拒绝。旧 `-native` 内核没有 CPU_FREQ、CPU_IDLE、ZRAM，不应把写 governor 的命令当成调频成功。候选开启上游 Tegra124 cpufreq、PMIC DFLL、LZ4 zram、PSI 和 MGLRU，保持原厂 CVB speed-bin 频率／电压表；不添加超频或降压 OPP。
 
 首次临时启动应带 `cpuidle.off=1`，先验证 DVFS、显示和 RAM 交换，再单独验证 C7 core power-off。Tegra124 的上游驱动禁用未实现的 CC6；启用 CPU_IDLE 不代表深度睡眠已经验收。
 
@@ -19,3 +19,5 @@
 Palmas 步长修复候选的固定档位与独立 PMU 对照通过，但 governor 切换时可出现过渡 monitor 样本。校验保持原误差阈值，在最多 20 轮有界窗口内要求同一请求连续两次匹配；单次偶然匹配不能掩盖持续错误。新增两项回归，总计八项通过。两次 RAM 冷启动在 schedutil、1020 MHz 请求上限下的 Nyxuri／触控／图标／弹窗与锁屏唤醒由用户确认；有限缓冲释放和 32 MiB LZ4 回读通过。该启动只临时激活 governor 和匹配 GPU，没有安装或启用策略主循环的永久服务；完整电压曲线、CPU idle 与长期压力仍待验收。
 
 服务启动时先应用用户、温度和熄屏限制，再启用 schedutil，避免第一轮循环前短暂使用更高上限。新增主循环的四种启动条件子案例，总计九项回归在 Windows 和 ARM 原型机通过。隔离的 1020 MHz 偏好下真实策略临时运行 40 秒并恢复参数；128 MiB 可压缩／不可压缩混合页交换回读一致。永久服务与默认内核仍未提升，不能外推完整电压曲线、CPU idle 或长期压力。
+
+2026-10-18：新增 VDE2 精确 release 守卫，总计十项回归通过。第二次 VDE2 RAM 冷启动在保留硬件频率校验的前提下，分别限时运行 612／1020 MHz 策略约 40 秒，结束后恢复 CPU 参数与 swappiness；384 MiB 逻辑 LZ4 交换中的 128 MiB 自有混合数据换出、校验读回通过。匹配策略及启动文件已带备份持久安装，普通启动验收已通过；这些有界检查仍不覆盖长期全局内存压力、完整电压曲线或 CPU idle。

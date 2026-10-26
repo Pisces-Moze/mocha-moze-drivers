@@ -1,0 +1,6 @@
+#!/bin/sh
+# TinyStories 260K: CUDA Transformer forward, CPU tokenization and sampling.
+set -eu
+directory=${MOCHA_LLM_DIRECTORY:-/srv/mocha-data/codex-debian-desktop/cuda-llm-stories260k}
+exec /usr/local/bin/mocha-cuda-runtime-run "$directory/mocha-cuda-llm-engine" \
+    "$directory/model.bin" -z "$directory/tokenizer.bin" -t 0 -n 96 "$@"

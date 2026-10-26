@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-21",
+  "repository": "https://github.com/Insei/SmokeR21.5-kernel",
+  "branch": "SmokeR21.5",
+  "commit": "a6a72bff97f4e35160537087750ca2f4a53f8907",
+  "files": [
+    {
+      "path": "arch/arm/boot/dts/tegra124-mocha.dts",
+      "sha256": "5bf4869d90e66fd53dd8907eec8e8665c468f4d2039ee7c85a1815dbe065b40f"
+    },
+    {
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-mocha-gpio-e1780.dtsi",
+      "sha256": "153a9688eaae63c88687637e5a1a353222352d3dbbdac0d7015fa846c9983ac5"
+    },
+    {
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-mocha-pinmux-e1780.dtsi",
+      "sha256": "33152c1bc554cda43bf68db63bf2e17a9d9d5bb94611632dc30bdc32dc18d8c8"
+    },
+    {
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-tn8-fixed-e1736-1000-a00.dtsi",
+      "sha256": "4e6af4586824913c77fc67280b6c0a2bde63154f553927337d29c9da3ccce561"
+    },
+    {
+      "path": "arch/arm/boot/dts/tegra124-platforms/tegra124-tn8-pmic-e1736-1000-a00.dtsi",
+      "sha256": "389757105643c777116a25db2398fcdf2431c8f3978dcf5d47307712e7bd51fd"
+    },
+    {
+      "path": "arch/arm/boot/dts/tegra124-tn8.dtsi",
+      "sha256": "90943f25e41552162b60591b86cc59e4f4919cfda4e71acb009a1de21f0b5624"
+    },
+    {
+      "path": "arch/arm/mach-tegra/board-ardbeg-power.c",
+      "sha256": "46744734066a9aee7a7e25a9d726f20b79bb21954a2cd796de9b8b600b6a69b0"
+    },
+    {
+      "path": "arch/arm/mach-tegra/board-ardbeg.c",
+      "sha256": "0c20486da63945b66afecdcd1294d5e563ce14592c6b77a56e5276c20a2c4210"
+    },
+    {
+      "path": "sound/soc/codecs/rt5671.c",
+      "sha256": "075214922d70d48b588598cf3f771a93fc756e09c2c7bdf1fa478f713806dba6"
+    },
+    {
+      "path": "sound/soc/tegra/tegra_rt5671.c",
+      "sha256": "9cda5a967710d3abb07672131b71910956c16d283b22073c20d3d2465e58297f"
+    }
+  ],
+  "findings": [
+    "This source includes sound/soc/tegra/tegra_rt5671.c as well as codec DT parsing, unlike the previously inspected Lineage kernel tree.",
+    "RT5671 remains at 0x1c; the headphone mute GPIO is 185 (PX1) and codec GPIO 178 (PW2) supplies headphone detection, not a newly identified reset line.",
+    "The fixed ldoen regulator is still Palmas GPIO6, active-high 1.2 V, supplied by the shared 1.8 V rail. The inspected PMIC audio dbvdd/avdd mappings do not identify a new audio power rail.",
+    "The power-file differences include a PMIC reset property and USB power extcon; they are not evidence that the codec NACK is fixed."
+  ],
+  "limits": [
+    "Reference audit only; no kernel, DTB, regulator, pinmux or codec register was modified on the tablet.",
+    "No sound-card registration or internal speaker playback is claimed.",
+    "Factory amplifier calibration remains untouched."
+  ]
+}

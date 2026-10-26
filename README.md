@@ -1,5 +1,11 @@
 # Mocha Moze Drivers
 
+## 2026-10-27 源码同步
+
+已整理 [内置扬声器数据输出脚与双功放](audio/README.md)、[BCM 蓝牙初始化及输入设备](bluetooth/README.md)、运行策略和开放 CUDA Runtime。对应硬件阶段记录随源码保留；这不等于完整 NVIDIA CUDA 库或所有休眠路径均已兼容。
+
+语言模型应用、模型选择和安装教程已移到独立 [Mocha LLM 仓库](https://github.com/Pisces-Moze/mocha-moze-llm)。驱动仓库继续保存底层 Runtime 来源、移植工具和诊断入口，避免用户把驱动实验包与 LLM 发行版本混用。
+
 > 让 Debian armhf 跑在小米平板 1 上的树外驱动适配层：MIUI GPL 驱动移植、固件来源说明与实机诊断工具。
 
 [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
@@ -21,10 +27,11 @@
 | 目录 | 内容 | 状态 | 限制 |
 |---|---|---|---|
 | `backlight/` | `mocha_miui_backlight`，LP8556 MIUI 寄存器设置 | 实际亮度调节通过 | 只改亮度寄存器与使能位，保留 bootloader 已写好的配置 |
-| `audio/` | TFA9890 移植、RT5671 machine、电源与 MCLK 探测 | 移植与 machine 编译通过，codec NACK；扬声器与麦克风未完成 | TFA 侧 MTP 保护开放着，未接通完整链路 |
+| `audio/` | RT5671／双 TFA、板级模块、持久加载与桌面音频 | 用户确认两侧发声，普通应用输出与空闲断电通过 | 安装后冷启动、耳机与麦克风待测；工厂 MTP 不写入 |
+| `bluetooth/` | Mocha RTS 上电修复的显式加载器、HID 模块启动及诊断 | S102 持久配对与听音通过；ThinkBook 鼠标连接并建立输入节点 | K480 绑定连接及内核键盘节点已建立；常规打字与鼠标动作尚未单独确认 |
 | `touch/` | Atmel 接入说明，失败的 Synaptics 移植存档 | 默认 Atmel 准确；Synaptics 不得默认加载 | Synaptics 仅供对照，不能盲刷固件 |
 | `diagnostics/` | 原生 DMA-BUF 色块、EGL 渲染探测、frame timing、scanout 读取、Atmel 配置读取 | 独立色块真实显示；不是完整桌面 | 需要临时 native 启动，运行前要停桌面 |
-| `cuda/` | Driver API 自检、PTX、Gdev 适配差异 | 有限整数计算通过；CUDA 6.5 runtime 未通过 | 不宣称支持任意 CUDA 程序或完整 Runtime |
+| `cuda/` | Gdev/Ocelot Runtime、Driver API、NVCC 样例与构建工具 | 开放 Runtime 的计算、共享内存、锁页／二维拷贝和流／事件通过，已持久安装 | 串行执行；PTX JIT、完整官方 ABI 与纹理等仍待完成 |
 | `firmware/` | 从自己的官方 MIUI / 合法软件包提取固件的方法 | 只写方法，不含二进制 | 不分发专有固件与设备校准数据 |
 | `tools/` | `build-backlight.sh` | 可用 | 依赖已构建完成的 O= 输出目录 |
 
@@ -36,7 +43,7 @@
 
 ### audio
 
-树外代码覆盖三块内容：TFA9890 codec 移植、RT5671 machine 驱动、以及两个临时探测模块。编译通过，但 codec 侧返回 NACK，扬声器和麦克风都还没打通。
+2026-10-22：内置双扬声器已打通并持久安装，用户确认两侧发声。当前使用 board／I2S／data-pin／runtime-card、带无 jack 卸载保护的 RT5670 与受保护 TFA 驱动，共六个精确匹配模块；PipeWire 输出与空闲功放关闭通过。构建、加载器、回退和限制见 [audio/README.md](audio/README.md)。安装后冷启动尚未复测，耳机与麦克风未完成。下述 DT machine 是早期候选，不是实机加载路径。
 
 `mocha_rt5671_machine.c` 把 MIUI 的 `tegra_rt5671.c` / `board-ardbeg.c` 里的路由和 codec-master 时钟安排翻成 Linux 6.12 的 ASoC 写法。采样率按 368640000（8k 系）或 282240000（11.025k 系）选 PLL_A 基准，MCLK 取 256×rate，codec 侧 PLL1 取 512×rate。compatible 为 `xiaomi,mocha-audio-rt5671`。扬声器 DSP 和功放被刻意留在第一轮 codec 测试之外。
 
@@ -67,6 +74,8 @@
 `read-atmel-config.c` 里设备节点写死为 `/dev/i2c-2`、地址写死 `0x4a`。总线号不是参数，换了机器要自己核对实际 I2C 设备与固件版本。
 
 ### cuda
+
+2026-10-25 已安装开放 Runtime，普通用户通过实际 NVCC 程序测试。功能范围、构建与安装入口见 [CUDA 移植说明](cuda/README.md) 和 [实机记录](cuda/validation-2026-10-25.json)。下面的官方 libcudart error 35 限制仍成立。
 
 GK20A 是 Kepler GPU，Nouveau 图形渲染可用不等于 NVIDIA CUDA 用户态 ABI 可用。CUDA 6.5 / L4T 21 的旧用户态依赖 nvhost、nvmap 这些旧接口，现代 Linux Nouveau 不会自动提供。
 
@@ -117,7 +126,7 @@ sudo depmod -a -b "$(realpath ../artifacts/rootfs)" 6.12.111-moze.1
 
 `INSTALL_MOD_PATH` 是根文件系统镜像的挂载点或 staging 目录，`modules_install` 会把 ko 放进它的 `lib/modules/<内核 release>/` 下，这里的 release 由内核源码的版本和 LOCALVERSION 一起决定，也就是模块必须落进和内核同一个 release 目录，跨 release 放进去不会生效。`INSTALL_MOD_STRIP=1` 装的时候剥掉调试符号。`depmod -b` 的根目录必须和 `INSTALL_MOD_PATH` 一致，后面那个版本号参数要和内核 release 完全相同。加载时不要自动启用音频实验模块。
 
-音频侧按同样方式编，但 `audio/Makefile` 只列了 `mocha_miui_tfa98xx.o` 和 `mocha_miui_speaker_machine.o`，另外两个探测模块需要时单独指定。ccflags 已经指向 `$(srctree)/sound/soc/tegra` 和 `$(srctree)/sound/soc/codecs`，`mocha_rt5671_machine.c` 和 `mocha_miui_speaker_machine.c` 都 include 了树内的 `tegra_asoc_machine.h` 和 `rt5670.h`，编之前确认内核源码里这两个头文件在。
+当前已验证音频使用 `audio/build-bringup.sh` 构建六个精确匹配模块，见 [音频说明](audio/README.md)。以下 `audio/Makefile` 构建方式仅用于早期 DT machine 候选：它只列了 `mocha_miui_tfa98xx.o` 和 `mocha_miui_speaker_machine.o`，探测模块需单独指定。ccflags 指向 `$(srctree)/sound/soc/tegra` 和 `$(srctree)/sound/soc/codecs`，编之前确认树内 `tegra_asoc_machine.h` 与 `rt5670.h` 存在。
 
 ```sh
 sudo make -C ../mocha-moze-linux O="$(realpath ../artifacts/kernel)" \
@@ -205,8 +214,8 @@ CUDA 那三个 `.deb` 是仓库引导包，不是直接满足现代内核驱动 
 
 | 事项 | 当前状态 | 下一步 | 出处 |
 |---|---|---|---|
-| RT5671 codec | machine 编译通过，codec NACK | 先验证官方电源序列、bus、reset、clock 和实际寄存器响应，再注册完整 ASoC 卡 | `audio/mocha_rt5671_machine.c` 注释 |
-| TFA9890 扬声器链路 | 移植可编译，未接通 | 需要合法来源的 DSP 资产与真实校准值 | `audio/mocha_miui_tfa98xx.c`、`audio/mocha_miui_speaker_machine.c` |
+| RT5671 codec | 0x1c 应答，真实声卡已注册 | PX5 高、DAP1 数据输出及 DAC1 总开关修复；DT 整合待完成 | `audio/README.md` |
+| TFA9890 扬声器链路 | 双侧听音通过、持久安装 | 校验合法 DSP 资产并保留工厂校准；空闲断电 | `audio/validation-2026-10-22.json` |
 | TFA MTP 校准 | `enable_otc()` 在低两位不是 `3` 时拒绝编程 | 不允许为了试音盲写 MTP 或绕过保护 | `audio/mocha_miui_tfa98xx.c` 第 340 行、`audio/miui-tfa98xx-linux612.patch` |
 | 麦克风 | 未完成 | 未确认 | `audio/mocha_miui_speaker_machine.c` 路由表 |
 | 原生 Tegra 显示 | 独立色块真实显示，不是完整桌面 | 继续开发原生显示路径 | `diagnostics/native-dmabuf-scanout-v2.c` |
@@ -218,7 +227,7 @@ CUDA 那三个 `.deb` 是仓库引导包，不是直接满足现代内核驱动 
 
 ## 常见误解
 
-ALSA / PipeWire 服务启动不等于扬声器存在。服务能起来只说明用户态音频栈在运行，codec 侧还在返回 NACK，链路上没有任何一路真的推动了功放。
+扬声器状态以实际音频链路与听音为准：2026-10-22 已确认 codec 应答、受保护双功放、PipeWire 普通应用播放和用户双侧听音。不能据此推断麦克风、耳机或所有采样格式都可用。
 
 Wi-Fi 菜单出现不等于蓝牙硬件配对完成。BCM4354 的 Wi-Fi 和蓝牙是两条独立路径，蓝牙还需要匹配自己设备 revision 的 HCD 与私有地址。
 

@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-25",
+  "gdev": {
+    "repository": "https://github.com/shinpei0208/gdev",
+    "archive_commit": "e328438f3cca32bd84ce64807e322673d4b66c40",
+    "url": "https://codeload.github.com/shinpei0208/gdev/tar.gz/refs/heads/master",
+    "bytes": 4117488,
+    "sha256": "c54f137616525e8b0357328688043f7bc5766e236f5dd6f4a89e38e873561d8b"
+  },
+  "nvidia_compiler": {
+    "url": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-core-6-5_6.5-14_amd64.deb",
+    "bytes": 24876196,
+    "sha256": "adadaf85f2955e2582adb4ac07d6876e92691cff185a262f6ffff9ac01192c55"
+  },
+  "nvidia_armhf_inputs": {
+    "cuda-misc-headers-6-5_6.5-14_armhf.deb": {
+      "url": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/armhf/cuda-misc-headers-6-5_6.5-14_armhf.deb",
+      "bytes": 729160,
+      "sha256": "426374e4398eb81c22239725b9995f760cfc57be871766209e39bce51c518238"
+    },
+    "cuda-cudart-6-5_6.5-14_armhf.deb": {
+      "url": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/armhf/cuda-cudart-6-5_6.5-14_armhf.deb",
+      "bytes": 100972,
+      "sha256": "4ae986b22b20ffeba9322cbf087b68d9d66c69de946fc3b4e3fb915ee05402ad"
+    },
+    "cuda-cudart-dev-6-5_6.5-14_armhf.deb": {
+      "url": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/armhf/cuda-cudart-dev-6-5_6.5-14_armhf.deb",
+      "bytes": 241950,
+      "sha256": "c2bda76fa3cde23391d782fb854230ea433526709518ee03df4263cbfb0b5773"
+    }
+  },
+  "ubuntu_archive": "https://archive.ubuntu.com/ubuntu/",
+  "isolated_gcc48_packages": {
+    "gcc-4.8-arm-linux-gnueabihf": {
+      "Package": "gcc-4.8-arm-linux-gnueabihf",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/gcc-4.8-arm-linux-gnueabihf_4.8.2-16ubuntu4cross0.11_amd64.deb",
+      "SHA256": "b49fb3a7c4efb6c1baa365cff45f0732823b170fd22a3fbba187b8c68d33df93",
+      "Depends": "cpp-4.8-arm-linux-gnueabihf (= 4.8.2-16ubuntu4cross0.11), binutils-arm-linux-gnueabihf (>= 2.22), libgcc-4.8-dev-armhf-cross (= 4.8.2-16ubuntu4cross0.11), libc6 (>= 2.14), libcloog-isl4 (>= 0.17), libgmp10, libisl10 (>= 0.10), libmpc3, libmpfr4 (>= 3.1.2), zlib1g (>= 1:1.1.4)"
+    },
+    "g++-4.8-arm-linux-gnueabihf": {
+      "Package": "g++-4.8-arm-linux-gnueabihf",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/g++-4.8-arm-linux-gnueabihf_4.8.2-16ubuntu4cross0.11_amd64.deb",
+      "SHA256": "34a554f133272c42af10652fbfd3d7f892b17bf00018c37ef58bce1e067f986b",
+      "Depends": "gcc-4.8-arm-linux-gnueabihf-base (= 4.8.2-16ubuntu4cross0.11), gcc-4.8-arm-linux-gnueabihf (= 4.8.2-16ubuntu4cross0.11), libstdc++-4.8-dev-armhf-cross (= 4.8.2-16ubuntu4cross0.11), libc6 (>= 2.14), libcloog-isl4 (>= 0.17), libgmp10, libisl10 (>= 0.10), libmpc3, libmpfr4 (>= 3.1.2), zlib1g (>= 1:1.1.4)"
+    },
+    "cpp-4.8-arm-linux-gnueabihf": {
+      "Package": "cpp-4.8-arm-linux-gnueabihf",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/cpp-4.8-arm-linux-gnueabihf_4.8.2-16ubuntu4cross0.11_amd64.deb",
+      "SHA256": "301fe7f57b9eabb39975bbfdd63b947c3e5627bcf46d172ccb7f50d745a50d78",
+      "Depends": "gcc-4.8-arm-linux-gnueabihf-base (= 4.8.2-16ubuntu4cross0.11), libc6 (>= 2.14), libcloog-isl4 (>= 0.17), libgmp10, libisl10 (>= 0.10), libmpc3, libmpfr4 (>= 3.1.2), zlib1g (>= 1:1.1.4)"
+    },
+    "gcc-4.8-arm-linux-gnueabihf-base": {
+      "Package": "gcc-4.8-arm-linux-gnueabihf-base",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/gcc-4.8-arm-linux-gnueabihf-base_4.8.2-16ubuntu4cross0.11_amd64.deb",
+      "SHA256": "51887d2b2785d14bfd56d5f29c0ee0cd5837cb926e6410159edf88dfd306511b"
+    },
+    "libstdc++-4.8-dev-armhf-cross": {
+      "Package": "libstdc++-4.8-dev-armhf-cross",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/libstdc++-4.8-dev-armhf-cross_4.8.2-16ubuntu4cross0.11_all.deb",
+      "SHA256": "4f5cd3b85fc0d0055f98b2e162bf76d5972434dd0d3ad6945fbd63cc07ca2bfc",
+      "Depends": "gcc-4.8-arm-linux-gnueabihf-base (= 4.8.2-16ubuntu4cross0.11), libgcc-4.8-dev-armhf-cross (= 4.8.2-16ubuntu4cross0.11), libstdc++6-armhf-cross (>= 4.8.2-16ubuntu4cross0.11), libc6-dev-armhf-cross (>= 2.13-0ubuntu6)"
+    },
+    "libgcc-4.8-dev-armhf-cross": {
+      "Package": "libgcc-4.8-dev-armhf-cross",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/libgcc-4.8-dev-armhf-cross_4.8.2-16ubuntu4cross0.11_all.deb",
+      "SHA256": "feac8b5c80f978bbeba56b5ce97c933c960da944c58ef2f2a1247d7609cb4179",
+      "Depends": "gcc-4.8-arm-linux-gnueabihf-base (= 4.8.2-16ubuntu4cross0.11), libgcc1-armhf-cross (>= 1:4.8.2-16ubuntu4cross0.11), libgomp1-armhf-cross (>= 4.8.2-16ubuntu4cross0.11), libatomic1-armhf-cross (>= 4.8.2-16ubuntu4cross0.11), libasan0-armhf-cross (>= 4.8.2-16ubuntu4cross0.11)"
+    },
+    "libgcc1-armhf-cross": {
+      "Package": "libgcc1-armhf-cross",
+      "Version": "1:4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/libgcc1-armhf-cross_4.8.2-16ubuntu4cross0.11_all.deb",
+      "SHA256": "4c7f372012d169b861265fbc523f168b3ff27e7f9e081c957da651459319e960",
+      "Depends": "gcc-4.8-arm-linux-gnueabihf-base (= 4.8.2-16ubuntu4cross0.11), libc6-armhf-cross (>= 2.19)"
+    },
+    "libstdc++6-armhf-cross": {
+      "Package": "libstdc++6-armhf-cross",
+      "Version": "4.8.2-16ubuntu4cross0.11",
+      "Filename": "pool/main/g/gcc-4.8-armhf-cross/libstdc++6-armhf-cross_4.8.2-16ubuntu4cross0.11_all.deb",
+      "SHA256": "3e8307f783eff176c483a3a3850b6957776c81dcfcb9ac5b55a9455553eb9b09",
+      "Depends": "gcc-4.8-arm-linux-gnueabihf-base (= 4.8.2-16ubuntu4cross0.11), libc6 (>= 2.11), libc6-armhf-cross (>= 2.19), libgcc1-armhf-cross"
+    },
+    "libc6-armhf-cross": {
+      "Package": "libc6-armhf-cross",
+      "Version": "2.19-0ubuntu2cross1.104",
+      "Filename": "pool/main/a/armhf-cross-toolchain-base/libc6-armhf-cross_2.19-0ubuntu2cross1.104_all.deb",
+      "SHA256": "ac8c3cd764a01ab001f01f8ed505e370ad20d3a2de8de11ea077b3693657559d"
+    },
+    "libc6-dev-armhf-cross": {
+      "Package": "libc6-dev-armhf-cross",
+      "Version": "2.19-0ubuntu2cross1.104",
+      "Filename": "pool/main/a/armhf-cross-toolchain-base/libc6-dev-armhf-cross_2.19-0ubuntu2cross1.104_all.deb",
+      "SHA256": "1f02e9b93c21efc99ee5b413d63dc8e5ed191aba9fb5ccabc4a0b0f0e135570e",
+      "Depends": "libc6-armhf-cross (= 2.19-0ubuntu2cross1.104), linux-libc-dev-armhf-cross"
+    },
+    "linux-libc-dev-armhf-cross": {
+      "Package": "linux-libc-dev-armhf-cross",
+      "Version": "3.13.0-12.32cross1.104",
+      "Filename": "pool/main/a/armhf-cross-toolchain-base/linux-libc-dev-armhf-cross_3.13.0-12.32cross1.104_all.deb",
+      "SHA256": "327cfa8923b3a65988a1628d9dc620ed440d3fb89212a4a8a33ff7777d9cf4aa"
+    },
+    "libcloog-isl4": {
+      "Package": "libcloog-isl4",
+      "Version": "0.18.2-1",
+      "Filename": "pool/main/c/cloog/libcloog-isl4_0.18.2-1_amd64.deb",
+      "SHA256": "c42936ac171d9cf5b99e5380688ee71cb153f223539310a451117d747dc794b9",
+      "Depends": "libc6 (>= 2.14), libgmp10, libisl10 (>= 0.11)"
+    },
+    "libisl10": {
+      "Package": "libisl10",
+      "Version": "0.12.2-1",
+      "Filename": "pool/main/i/isl/libisl10_0.12.2-1_amd64.deb",
+      "SHA256": "7529ac268ecac0f3132f7b13c9846c14984d41d3c1cfbc2060787de9ba208989",
+      "Depends": "libc6 (>= 2.14), libgmp10"
+    },
+    "libmpfr4": {
+      "Package": "libmpfr4",
+      "Version": "3.1.2-1",
+      "Filename": "pool/main/m/mpfr4/libmpfr4_3.1.2-1_amd64.deb",
+      "SHA256": "1c061fdaf049aedad2828e22c042fdce84f1a0999f6db7d9a5f1b57f75fa0f08",
+      "Depends": "libc6 (>= 2.14), libgmp10"
+    }
+  }
+}

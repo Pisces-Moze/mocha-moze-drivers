@@ -1,0 +1,27 @@
+{
+  "llama2_c_commit": "350e04fe35433e6d2941dce5a1f53308f87058eb",
+  "model_revision": "0bd21da7698eaf29a0d7de3992de8a46ef624add",
+  "model": "karpathy/tinyllamas stories260K",
+  "inputs": {
+    "run.c": {
+      "url": "https://raw.githubusercontent.com/karpathy/llama2.c/350e04fe35433e6d2941dce5a1f53308f87058eb/run.c",
+      "bytes": 38545,
+      "sha256": "9c4f2d5c6ae01b71726d1cc37530d71e60bff0ec7cc012565f16a43c1ca658bd"
+    },
+    "LICENSE": {
+      "url": "https://raw.githubusercontent.com/karpathy/llama2.c/350e04fe35433e6d2941dce5a1f53308f87058eb/LICENSE",
+      "bytes": 1063,
+      "sha256": "e87b912002f04cdfa837eaf7f70548ab79b9cb62a285495edf575f3da875aec4"
+    },
+    "model.bin": {
+      "url": "https://huggingface.co/karpathy/tinyllamas/resolve/0bd21da7698eaf29a0d7de3992de8a46ef624add/stories260K/stories260K.bin",
+      "bytes": 1056540,
+      "sha256": "b0a507e7ad0f626624f17112325e66691f9076d622e1d3274d103d00299f2696"
+    },
+    "tokenizer.bin": {
+      "url": "https://huggingface.co/karpathy/tinyllamas/resolve/0bd21da7698eaf29a0d7de3992de8a46ef624add/stories260K/tok512.bin",
+      "bytes": 6227,
+      "sha256": "037cb335abb25d1fa9e8ecae30ed2a3a8ace9302862ebcdc05d51a6bbb10c312"
+    }
+  }
+}
