@@ -10,6 +10,8 @@ import sys
 KERNEL = '6.12.111-moze.1-native-vde2'
 ROOT = Path('/usr/local/lib/mocha-audio') / KERNEL / '20261022'
 FWROOT = Path('/lib/firmware/mocha')
+# ALSA scale is -127.5 dB to 0 dB in 0.5 dB steps.
+SPEAKER_DIGITAL_VOLUME = '231'  # -12 dB, 6 dB above the bring-up setting.
 
 
 def run(args):
@@ -53,7 +55,7 @@ def start():
     # Keep the codec muted while selecting protected firmware and the route.
     control('DAC1 Playback Switch', 'off,off')
     for side in ['Left', 'Right']:
-        control(side + ' Spk Digital Volume', '219')  # -18 dB hardware ceiling
+        control(side + ' Spk Digital Volume', SPEAKER_DIGITAL_VOLUME)
         control(side + ' Spk Input Channel Mux', side)
         control(side + ' Spk Amplifier Channel Mux', 'DSP')
         control(side + ' Spk Input Interface Mux', 'Input1')
