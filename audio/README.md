@@ -20,13 +20,13 @@
 实机安装路径：
 
 - `/usr/local/lib/mocha-audio/6.12.111-moze.1-native-vde2/20261022/`：匹配模块和 `manifest.json`，记录每个模块与合法私有固件的 SHA256。
-- `/usr/local/libexec/mocha-speaker-hardware`：来自 `mocha-speaker-hardware.py`，校验机器、内核、模块 ABI 及所有资产哈希，再配置路由。首次调音候选将左右数字衰减从 −18 dB 调到 −12 dB，保留保护 DSP、音乐预设和工厂校准。实际响度和失真还有待听音确认。
+- `/usr/local/libexec/mocha-speaker-hardware`：来自 `mocha-speaker-hardware.py`，校验机器、内核、模块 ABI 及所有资产哈希，再配置路由。已打包的 r7 使用 −12 dB。下一版镜像默认使用 0 dB（ALSA 255），保留保护 DSP、音乐预设和工厂校准。
 
-已有 r6 可以先在 Debian 桌面降低音量，暂停播放，再执行以下命令临时比较响度。重新启动扬声器服务或系统会还原 r6 的设定。
+已有 r6 或 r7 可以先在 Debian 桌面降低音量，暂停播放，再执行以下命令临时比较响度。重新启动扬声器服务或系统会还原当前镜像的设定。
 
 ```sh
-sudo amixer -c Speakers cset 'name=Left Spk Digital Volume' 231
-sudo amixer -c Speakers cset 'name=Right Spk Digital Volume' 231
+sudo amixer -c Speakers cset 'name=Left Spk Digital Volume' 255
+sudo amixer -c Speakers cset 'name=Right Spk Digital Volume' 255
 ```
 - `/etc/systemd/system/mocha-speaker-hardware.service`：已启用，挂载数据区与硬件初始化后加载，进入桌面前完成。
 - `/etc/wireplumber/wireplumber.conf.d/51-mocha-speakers.conf` 与 `/usr/share/alsa-card-profile/mixer/profile-sets/mocha-speakers.conf`：固定立体声输出，软件音量，空闲挂起；不暴露未验证麦克风。

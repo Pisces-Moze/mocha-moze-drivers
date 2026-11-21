@@ -11,7 +11,7 @@ KERNEL = '6.12.111-moze.1-native-vde2'
 ROOT = Path('/usr/local/lib/mocha-audio') / KERNEL / '20261022'
 FWROOT = Path('/lib/firmware/mocha')
 # ALSA scale is -127.5 dB to 0 dB in 0.5 dB steps.
-SPEAKER_DIGITAL_VOLUME = '231'  # -12 dB, 6 dB above the bring-up setting.
+SPEAKER_DIGITAL_VOLUME = '255'  # 0 dB, no digital attenuation.
 
 
 def run(args):
