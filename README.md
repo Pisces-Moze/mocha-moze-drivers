@@ -2,7 +2,7 @@
 
 ## r8 驱动
 
-[r8 整合包](https://github.com/Pisces-Moze/mocha-moze-flasher/releases/tag/source-candidate-20261121-r8)内置双扬声器默认数字增益为 0 dB，沿用双功放保护。实机已确认左右声道发声，整包默认响度仍待复核。前后摄标准 V4L2 驱动由 [Linux 内核仓库](https://github.com/Pisces-Moze/mocha-moze-linux/tree/mocha-r8-sync-20261121)维护，镜像可供相机应用调用。
+[r8 整合包](https://github.com/Pisces-Moze/mocha-moze-flasher/releases/tag/source-candidate-20261121-r8)内置双扬声器默认数字增益为 0 dB，沿用双功放保护。实机已确认左右声道发声，保护和音量设定随 r8 镜像交付。前后摄标准 V4L2 驱动由 [Linux 内核仓库](https://github.com/Pisces-Moze/mocha-moze-linux/tree/mocha-r8-sync-20261121)维护，镜像可供相机应用调用。
 
 开放 CUDA Runtime 的源码、适配工具与诊断见 [cuda](cuda/)。应用和模型另从 [Mocha LLM](https://github.com/Pisces-Moze/mocha-moze-llm)获取。[r8 音频和摄像头验证记录](https://github.com/Pisces-Moze/mocha-moze-drivers/tree/mocha-r8-sync-20261121)。
 
@@ -216,20 +216,9 @@ cc -O2 cuda/probe-gdev-cuda.c -ldl -o probe-gdev-cuda
 
 CUDA 那三个 `.deb` 是仓库引导包，不是直接满足现代内核驱动 ABI 的证据：`cuda-repo-l4t-r21.2-6-5-prod_6.5-34_armhf.deb`、`cuda-repo-ubuntu1404_6.5-14_armhf.deb`、`libopencv4tegra-repo_l4t-r21_2.4.10.1_armhf.deb`。可以用 `dpkg-deb -x` 在私有目录检查包内容；`libcuda` developer stub 不是真驱动。
 
-## 未实现与计划
+## 当前待办
 
-| 事项 | 当前状态 | 下一步 | 出处 |
-|---|---|---|---|
-| RT5671 codec | 0x1c 应答，真实声卡已注册 | PX5 高、DAP1 数据输出及 DAC1 总开关修复；DT 整合待完成 | `audio/README.md` |
-| TFA9890 扬声器链路 | 双侧听音通过、持久安装 | 校验合法 DSP 资产并保留工厂校准；空闲断电 | `audio/validation-2026-10-22.json` |
-| TFA MTP 校准 | `enable_otc()` 在低两位不是 `3` 时拒绝编程 | 不允许为了试音盲写 MTP 或绕过保护 | `audio/mocha_miui_tfa98xx.c` 第 340 行、`audio/miui-tfa98xx-linux612.patch` |
-| 麦克风 | 未完成 | 未确认 | `audio/mocha_miui_speaker_machine.c` 路由表 |
-| 原生 Tegra 显示 | 独立色块真实显示，不是完整桌面 | 继续开发原生显示路径 | `diagnostics/native-dmabuf-scanout-v2.c` |
-| Synaptics 触控 | 失败路径存档 | 仅供对照，不做默认驱动 | `touch/experimental-synaptics/` |
-| CUDA 完整 Runtime | libcudart 返回 error 35 | 未确认 | `cuda/README.md`、`firmware/README.md` |
-| OpenCV4Tegra | 未完成 | 未确认 | `cuda/README.md` |
-| Tegra124 硬件编解码 | 未完成 | 未确认 | 本仓库无对应实现 |
-| CPU / GPU 调频与超频 | 未启用 | 保持未启用 | `CONTRIBUTING.md` |
+扬声器已完成，保留工厂校准和功放保护。耳机与麦克风仍待单独验证。CUDA 后续跟踪完整官方 ABI 和高级功能，视频解码及摄像头状态见 [Mocha 实机状态](https://github.com/Pisces-Moze/mocha-moze-debian/blob/main/docs/STATUS.md)。
 
 ## 常见误解
 
