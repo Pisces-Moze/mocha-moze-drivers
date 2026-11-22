@@ -1,5 +1,11 @@
 # Mocha Moze Drivers
 
+## r8 驱动
+
+[r8 整合包](https://github.com/Pisces-Moze/mocha-moze-flasher/releases/tag/source-candidate-20261121-r8)内置双扬声器默认数字增益为 0 dB，沿用双功放保护。实机已确认左右声道发声，整包默认响度仍待复核。前后摄标准 V4L2 驱动由 [Linux 内核仓库](https://github.com/Pisces-Moze/mocha-moze-linux/tree/mocha-r8-sync-20261121)维护，镜像可供相机应用调用。
+
+开放 CUDA Runtime 的源码、适配工具与诊断见 [cuda](cuda/)。应用和模型另从 [Mocha LLM](https://github.com/Pisces-Moze/mocha-moze-llm)获取。[r8 音频和摄像头验证记录](https://github.com/Pisces-Moze/mocha-moze-drivers/tree/mocha-r8-sync-20261121)。
+
 ## 2026-10-27 源码同步
 
 已整理 [内置扬声器数据输出脚与双功放](audio/README.md)、[BCM 蓝牙初始化及输入设备](bluetooth/README.md)、运行策略和开放 CUDA Runtime。对应硬件阶段记录随源码保留；这不等于完整 NVIDIA CUDA 库或所有休眠路径均已兼容。
